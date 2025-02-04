@@ -9,20 +9,39 @@
 
 <body>
     <h1>Fish Episodes</h1>
+    <form method="POST">
+        <fieldset>
+            <legend>Filter by Live Status</legend>
+            <label>
+                <input type="radio" name="is_live" value="live"> Live
+            </label>
+            <label>
+                <input type="radio" name="is_live" value="not_live"> Not Live
+            </label>
+            <label>
+                <input type="radio" name="is_live" value="either" checked> Either
+            </label>
+        </fieldset>
+        <fieldset>
+            <legend>Filter by Presenters</legend>
+            {% for presenter in presenters %}
+            <label>
+                <input type="checkbox" name="presenters" value="{{ presenter }}"> {{ presenter }}
+            </label>
+            {% endfor %}
+        </fieldset>
+        <button type="submit">Random Episode</button>
+    </form>
+
     {% if episode %}
-    <h2>{{ episode.title | safe }}</h2>
+    <h2>{{ episode.title }}</h2>
     <p><strong>Number:</strong> {{ episode.number }}</p>
     <p><strong>Presenters:</strong> {{ episode.presenters }}</p>
     <p><strong>Location:</strong> {{ episode.location }}</p>
     <p><strong>Date:</strong> {{ episode.date }}</p>
     <p><strong>Is Live:</strong> {{ "Yes" if episode.is_live else "No" }}</p>
-    <form method="POST">
-        <button type="submit">Random Episode</button>
-    </form>
-    {% else %}
-    <form method="POST">
-        <button type="submit">Random Episode</button>
-    </form>
+    {% elif error %}
+    <p>{{ error }}</p>
     {% endif %}
 </body>
 
