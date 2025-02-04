@@ -15,6 +15,8 @@ DB_NAME = os.getenv("MYSQL_DATABASE")
 
 def get_random_episode():
     """Fetch a random episode from the fish_episodes table."""
+    print(f"Connecting to database at {DB_HOST}...")
+    cursor = None
     try:
         conn = mysql.connector.connect(
             host=DB_HOST,
