@@ -39,7 +39,7 @@ def get_random_episode():
             episode = cursor.fetchone()
             return episode
 
-    except mysql.connector.Error as err:
+    except Exception as err:
         print(f"Error: {err}")
         return None
     finally:
