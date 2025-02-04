@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 
 # Database configuration
-DB_HOST = os.getenv("MYSQL_URL")
+DB_HOST = os.getenv("MYSQLHOST")
 DB_USER = os.getenv("MYSQLUSER")
 DB_PASSWORD = os.getenv("MYSQL_ROOT_PASSWORD")
 DB_PORT = os.getenv("MYSQLPORT")
