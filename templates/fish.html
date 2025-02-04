@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fish Episodes</title>
+</head>
+
+<body>
+    <h1>Fish Episodes</h1>
+    {% if episode %}
+    <h2>{{ episode.title }}</h2>
+    <p><strong>Number:</strong> {{ episode.number }}</p>
+    <p><strong>Presenters:</strong> {{ episode.presenters }}</p>
+    <p><strong>Location:</strong> {{ episode.location }}</p>
+    <p><strong>Date:</strong> {{ episode.date }}</p>
+    <p><strong>Is Live:</strong> {{ "Yes" if episode.is_live else "No" }}</p>
+    <form method="POST">
+        <button type="submit">Random Episode</button>
+    </form>
+    {% else %}
+    <form method="POST">
+        <button type="submit">Random Episode</button>
+    </form>
+    {% endif %}
+</body>
+
+</html>
