@@ -13,8 +13,8 @@ DB_PORT = os.getenv("MYSQLPORT")
 DB_NAME = os.getenv("MYSQL_DATABASE")
 
 
-def get_random_episode():
-    """Fetch a random episode from the fish_episodes table."""
+def get_filtered_random_episode(is_live_filter, selected_presenters):
+    """Fetch a filtered random episode from the fish_episodes table."""
     print(f"Connecting to database at {DB_HOST}...")
     cursor = None
     try:
@@ -27,19 +27,31 @@ def get_random_episode():
         )
         cursor = conn.cursor(dictionary=True)
 
-        # Query to get the total number of episodes
-        cursor.execute("SELECT COUNT(*) AS count FROM fish_episodes;")
-        result = cursor.fetchone()
-        total_episodes = result["count"]
+        # Build the query with filters
+        query = "SELECT * FROM fish_episodes WHERE 1=1"
+        params = []
 
-        if total_episodes > 0:
-            # Get a random ID
-            random_id = random.randint(1, total_episodes)
+        # Add the is_live filter if specified
+        if is_live_filter is not None:
+            query += " AND is_live = %s"
+            params.append(is_live_filter)
 
-            # Fetch the random episode
-            cursor.execute("SELECT * FROM fish_episodes WHERE id = %s;", (random_id,))
-            episode = cursor.fetchone()
-            return episode
+        # Add the presenter filters if specified
+        if selected_presenters:
+            presenter_conditions = []
+            for presenter in selected_presenters:
+                presenter_conditions.append(f"presenters LIKE %s")
+                params.append(f"%{presenter}%")
+            query += " AND " + " AND ".join(presenter_conditions)
+
+        # Fetch all matching episodes
+        cursor.execute(query, params)
+        episodes = cursor.fetchall()
+
+        if episodes:
+            # Pick a random episode from the filtered results
+            return random.choice(episodes)
+        return None
 
     except Exception as err:
         print(f"Error: {err}")
@@ -59,15 +71,32 @@ def index():
 @app.route("/fish", methods=["GET", "POST"])
 def fish():
     if request.method == "POST":
-        # Fetch a random episode from the database
-        episode = get_random_episode()
-        if episode:
-            return render_template("fish.html", episode=episode)
-        else:
-            return "Could not fetch episode from the database.", 500
+        # Get filters from the form
+        is_live = request.form.get("is_live")
+        selected_presenters = request.form.getlist("presenters")
 
-    # Render the page with the "random episode" button
-    return render_template("fish.html", episode=None)
+        # Convert is_live filter to boolean or None
+        if is_live == "live":
+            is_live_filter = True
+        elif is_live == "not_live":
+            is_live_filter = False
+        else:
+            is_live_filter = None
+
+        # Fetch a filtered random episode
+        episode = get_filtered_random_episode(is_live_filter, selected_presenters)
+        if episode:
+            return render_template("fish.html", episode=episode, presenters=["Dan", "Anna", "Andy", "James"])
+        else:
+            return render_template(
+                "fish.html",
+                episode=None,
+                presenters=["Dan", "Anna", "Andy", "James"],
+                error="No episodes found with the selected filters.",
+            )
+
+    # Render the page with the "random episode" button and filters
+    return render_template("fish.html", episode=None, presenters=["Dan", "Anna", "Andy", "James"])
 
 
 if __name__ == "__main__":
