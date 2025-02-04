@@ -6,11 +6,11 @@ import os
 app = Flask(__name__)
 
 # Database configuration
-DB_HOST = os.getenv("${{MySQL.MYSQL_URL}}")
-DB_USER = "root"
-DB_PASSWORD = os.getenv("${{MySQL.MYSQL_ROOT_PASSWORD}}")
-DB_PORT = os.getenv("${{MySQL.MYSQLPORT}}")
-DB_NAME = "railway"
+DB_HOST = os.getenv("MYSQL_URL")
+DB_USER = os.getenv("MYSQLUSER")
+DB_PASSWORD = os.getenv("MYSQL_ROOT_PASSWORD")
+DB_PORT = os.getenv("MYSQLPORT")
+DB_NAME = os.getenv("MYSQL_DATABASE")
 
 
 def get_random_episode():
