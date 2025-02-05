@@ -48,6 +48,7 @@
                     {% endfor %}
                 </select>
             </label>
+            <button type="submit" name="action" value="see_listened">See Listened Episodes</button>
         </fieldset>
 
         <button type="submit">Random Episode</button>
@@ -71,6 +72,25 @@
     {% elif success %}
     <p>{{ success }}</p>
     {% endif %}
+
+    {% if listened_episodes %}
+    <h2>Listened Episodes for {{ username }}</h2>
+    <ul>
+        {% for ep in listened_episodes %}
+        <li>
+            <strong>{{ ep.title }}</strong> ({{ ep.date }})
+            - <em>{{ ep.presenters }}</em>
+            - Listened on: {{ ep.listened_at }}
+            <form method="POST" style="display:inline;">
+                <input type="hidden" name="username" value="{{ username }}">
+                <input type="hidden" name="episode_id" value="{{ ep.id }}">
+                <button type="submit" name="action" value="remove_listened">Remove</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
 </body>
 
 </html>

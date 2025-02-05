@@ -52,6 +52,49 @@ def user_exists(username):
         conn.close()
 
 
+def get_listened_episodes(username):
+    """Fetch all episodes the user has listened to, ordered by most recent."""
+    try:
+        conn = connect_db()
+        cursor = conn.cursor(dictionary=True)
+
+        query = """
+        SELECT f.id, f.number, f.title, f.presenters, f.location, f.date, l.listened_at
+        FROM fish_listening_history l
+        JOIN fish_episodes f ON l.episode_id = f.id
+        WHERE l.user_id = (SELECT id FROM users WHERE username = %s)
+        ORDER BY l.listened_at DESC;
+        """
+        cursor.execute(query, (username,))
+        return cursor.fetchall()
+    except Exception as err:
+        print(f"Error: {err}")
+        return []
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def remove_listened_episode(username, episode_id):
+    """Remove an episode from the user's listening history."""
+    try:
+        conn = connect_db()
+        cursor = conn.cursor()
+
+        query = """
+        DELETE FROM fish_listening_history
+        WHERE user_id = (SELECT id FROM users WHERE username = %s)
+        AND episode_id = %s;
+        """
+        cursor.execute(query, (username, episode_id))
+        conn.commit()
+    except Exception as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def get_filtered_random_episode(is_live_filter, selected_presenters, username, exclude_months):
     """Fetch a filtered random episode from the fish_episodes table."""
     try:
@@ -255,6 +298,7 @@ def fish():
     is_live = request.form.get("is_live", "either")
     selected_presenters = request.form.getlist("presenters")
     exclude_months = request.form.get("exclude_months", "all")
+    listened_episodes = []  # Stores the episodes user has listened to
 
     resp = make_response()  # Create a response object to modify later
 
@@ -268,6 +312,15 @@ def fish():
             username = submitted_username  # Update username for the session
             resp.set_cookie("username", username, max_age=60 * 60 * 24 * 30)  # Store for 30 days
 
+            # Show listened episodes
+        if action == "see_listened":
+            listened_episodes = get_listened_episodes(username)
+
+        # Remove an episode from the listening history
+        elif action == "remove_listened" and episode_id:
+            remove_listened_episode(username, episode_id)
+            listened_episodes = get_listened_episodes(username)  # Refresh list
+
         # Mark episode as listened
         if action == "mark_listened" and episode_id:
             mark_episode_listened(username, episode_id)
@@ -280,6 +333,7 @@ def fish():
                     is_live=is_live,
                     selected_presenters=selected_presenters,
                     exclude_months=exclude_months,
+                    listened_episodes=get_listened_episodes(username),
                     success="Episode marked as listened!",
                 )
             )
@@ -296,6 +350,7 @@ def fish():
                 is_live=is_live,
                 selected_presenters=selected_presenters,
                 exclude_months=exclude_months,
+                listened_episodes=listened_episodes,
                 error=None if episode else "No episodes found with the selected filters.",
             )
         )
@@ -311,6 +366,7 @@ def fish():
             is_live=is_live,
             selected_presenters=selected_presenters,
             exclude_months=exclude_months,
+            listened_episodes=listened_episodes,
             error=error,
         )
     )
