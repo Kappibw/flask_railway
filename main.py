@@ -295,6 +295,7 @@ def fish():
     username = request.cookies.get("username")  # Retrieve username from cookie
 
     # Default values
+    episode = None
     is_live = request.form.get("is_live", "either")
     selected_presenters = request.form.getlist("presenters")
     exclude_months = request.form.get("exclude_months", "all")
@@ -339,28 +340,15 @@ def fish():
             )
             return resp  # Return the modified response
 
-        # Fetch a filtered random episode
-        episode = get_filtered_random_episode(is_live, selected_presenters, username, exclude_months)
-        resp.set_data(
-            render_template(
-                "fish.html",
-                episode=episode,
-                presenters=["Dan", "Anna", "Andrew", "James"],
-                username=username,
-                is_live=is_live,
-                selected_presenters=selected_presenters,
-                exclude_months=exclude_months,
-                listened_episodes=listened_episodes,
-                error=None if episode else "No episodes found with the selected filters.",
-            )
-        )
-        return resp  # Return the modified response
+        if action == "get_random_episode":
+            episode = get_filtered_random_episode(is_live, selected_presenters, username, exclude_months)
+            if not episode:
+                error = "No episodes found with the selected filters."
 
-    # Default page load
     resp.set_data(
         render_template(
             "fish.html",
-            episode=None,
+            episode=episode,
             presenters=["Dan", "Anna", "Andrew", "James"],
             username=username,
             is_live=is_live,
@@ -370,7 +358,7 @@ def fish():
             error=error,
         )
     )
-    return resp
+    return resp  # Return the modified response
 
 
 if __name__ == "__main__":
