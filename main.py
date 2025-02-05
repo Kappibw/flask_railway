@@ -5,7 +5,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 import html
-import re
+import urllib.parse
 from datetime import datetime, timedelta
 import threading
 import time
@@ -138,7 +138,7 @@ def get_filtered_random_episode(is_live_filter, selected_presenters, username, e
         episodes = cursor.fetchall()
 
         for episode in episodes:
-            episode["title"] = html.unescape(episode["title"])
+            episode["title"] = html.unescape(urllib.parse.unquote(episode["title"]))
 
         return random.choice(episodes) if episodes else None
     except Exception as err:

@@ -1,0 +1,53 @@
+/* Global Page Styling */
+body {
+    background-color: black;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+/* Logo */
+header img {
+    width: 100px;
+    /* Adjust size as needed */
+    height: auto;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+}
+
+/* Section Headers */
+fieldset legend {
+    background-color: yellow;
+    color: black;
+    padding: 10px;
+    font-weight: bold;
+    border-radius: 5px;
+}
+
+/* Form Styling */
+form {
+    margin: 20px auto;
+    padding: 20px;
+    width: 50%;
+    border: 2px solid yellow;
+    background-color: rgba(255, 255, 0, 0.2);
+    /* Light yellow transparency */
+    border-radius: 10px;
+}
+
+/* Buttons */
+button {
+    background-color: yellow;
+    color: black;
+    border: none;
+    padding: 10px 15px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+button:hover {
+    background-color: orange;
+}
