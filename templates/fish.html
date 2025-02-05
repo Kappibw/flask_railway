@@ -1,65 +1,53 @@
-<!DOCTYPE html>
-<html lang="en">
+<form method="POST">
+    <fieldset>
+        <legend>User Details</legend>
+        <label>Username:
+            <input type="text" name="username" value="{{ username or '' }}" required>
+        </label>
+    </fieldset>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fish Episodes</title>
-</head>
+    <fieldset>
+        <legend>Filter by Live Status</legend>
+        <label><input type="radio" name="is_live" value="live" {% if is_live=='live' %}checked{% endif %}> Live</label>
+        <label><input type="radio" name="is_live" value="not_live" {% if is_live=='not_live' %}checked{% endif %}> Not
+            Live</label>
+        <label><input type="radio" name="is_live" value="either" {% if is_live=='either' %}checked{% endif %}>
+            Either</label>
+    </fieldset>
 
-<body>
-    <h1>Fish Episodes</h1>
-    <form method="POST">
-        <fieldset>
-            <legend>User Details</legend>
-            <label>Username:
-                <input type="text" name="username" required>
-            </label>
-        </fieldset>
-        <fieldset>
-            <legend>Filter by Live Status</legend>
-            <label><input type="radio" name="is_live" value="live"> Live</label>
-            <label><input type="radio" name="is_live" value="not_live"> Not Live</label>
-            <label><input type="radio" name="is_live" value="either" checked> Either</label>
-        </fieldset>
-        <fieldset>
-            <legend>Filter by Presenters</legend>
-            {% for presenter in presenters %}
-            <label><input type="checkbox" name="presenters" value="{{ presenter }}"> {{ presenter }}</label>
-            {% endfor %}
-        </fieldset>
-        <fieldset>
-            <legend>Exclude Episodes Listened To</legend>
-            <label>Exclude in the last:
-                <select name="exclude_months">
-                    <option value="all" selected>All</option>
-                    {% for i in range(1, 7) %}
-                    <option value="{{ i }}">{{ i }} month{{ 's' if i > 1 else '' }}</option>
-                    {% endfor %}
-                </select>
-            </label>
-        </fieldset>
-        <button type="submit">Find Random Episode</button>
-    </form>
+    <fieldset>
+        <legend>Filter by Presenters</legend>
+        {% for presenter in presenters %}
+        <label>
+            <input type="checkbox" name="presenters" value="{{ presenter }}" {% if presenter in selected_presenters
+                %}checked{% endif %}> {{ presenter }}
+        </label>
+        {% endfor %}
+    </fieldset>
 
-    {% if episode %}
-    <h2>{{ episode.title | safe }}</h2>
-    <p><strong>Number:</strong> {{ episode.number }}</p>
-    <p><strong>Presenters:</strong> {{ episode.presenters }}</p>
-    <p><strong>Location:</strong> {{ episode.location }}</p>
-    <p><strong>Date:</strong> {{ episode.date }}</p>
-    <p><strong>Is Live:</strong> {{ "Yes" if episode.is_live else "No" }}</p>
-    <form method="POST">
-        <input type="hidden" name="username" value="{{ username or '' }}">
-        <input type="hidden" name="episode_id" value="{{ episode.id }}">
-        <input type="hidden" name="action" value="mark_listened">
-        <button type="submit">Mark Listened</button>
-    </form>
-    {% elif error %}
-    <p>{{ error }}</p>
-    {% elif success %}
-    <p>{{ success }}</p>
-    {% endif %}
-</body>
+    <fieldset>
+        <legend>Exclude Episodes Listened To</legend>
+        <label>Exclude in the last:
+            <select name="exclude_months">
+                <option value="all" {% if exclude_months=='all' %}selected{% endif %}>All</option>
+                {% for i in range(1, 7) %}
+                <option value="{{ i }}" {% if exclude_months==i|string %}selected{% endif %}>{{ i }} month{{ 's' if i >
+                    1 else '' }}</option>
+                {% endfor %}
+            </select>
+        </label>
+    </fieldset>
 
-</html>
+    <button type="submit">Random Episode</button>
+</form>
+
+{% if episode %}
+<h2>{{ episode.title }}</h2>
+<p><strong>Number:</strong> {{ episode.number }}</p>
+<p><strong>Presenters:</strong> {{ episode.presenters }}</p>
+<p><strong>Location:</strong> {{ episode.location }}</p>
+<p><strong>Date:</strong> {{ episode.date }}</p>
+<p><strong>Is Live:</strong> {{ "Yes" if episode.is_live else "No" }}</p>
+{% elif error %}
+<p>{{ error }}</p>
+{% endif %}

@@ -249,25 +249,23 @@ def index():
 @app.route("/fish", methods=["GET", "POST"])
 def fish():
     error = None
-    username = request.cookies.get("username")  # Retrieve username from cookie if available
+    username = request.cookies.get("username")  # Retrieve username from cookie
+
+    # Default values
+    is_live = request.form.get("is_live", "either")
+    selected_presenters = request.form.getlist("presenters")
+    exclude_months = request.form.get("exclude_months", "all")
 
     if request.method == "POST":
-        # If the user submitted a username, store it in a cookie
-        username = request.form.get("username")
-        if username:
-            resp = make_response(redirect(url_for("fish")))  # Redirect to refresh page with cookie
-            resp.set_cookie("username", username, max_age=60 * 60 * 24 * 30)  # 30 days expiry
-            return resp
-        is_live = request.form.get("is_live")
-        selected_presenters = request.form.getlist("presenters")
-        exclude_months = request.form.get("exclude_months", "all")
         episode_id = request.form.get("episode_id")
         action = request.form.get("action")
 
-        # Verify username
-        if not user_exists(username):
-            error = "Username does not exist."
-            return render_template("fish.html", episode=None, presenters=["Dan", "Anna", "Andy", "James"], error=error)
+        # If the user submits a username, store it in a cookie
+        submitted_username = request.form.get("username")
+        if submitted_username:
+            resp = make_response(redirect(url_for("fish")))
+            resp.set_cookie("username", submitted_username, max_age=60 * 60 * 24 * 30)
+            return resp
 
         # Mark episode as listened
         if action == "mark_listened" and episode_id:
@@ -275,35 +273,39 @@ def fish():
             return render_template(
                 "fish.html",
                 episode=None,
-                username=username,
                 presenters=["Dan", "Anna", "Andy", "James"],
+                username=username,
+                is_live=is_live,
+                selected_presenters=selected_presenters,
+                exclude_months=exclude_months,
                 success="Episode marked as listened!",
             )
 
-        # Convert is_live filter to boolean or None
-        if is_live == "live":
-            is_live_filter = True
-        elif is_live == "not_live":
-            is_live_filter = False
-        else:
-            is_live_filter = None
-
         # Fetch a filtered random episode
-        episode = get_filtered_random_episode(is_live_filter, selected_presenters, username, exclude_months)
+        episode = get_filtered_random_episode(is_live, selected_presenters, username, exclude_months)
         if episode:
             return render_template(
                 "fish.html",
                 episode=episode,
-                username=username,
                 presenters=["Dan", "Anna", "Andy", "James"],
                 username=username,
+                is_live=is_live,
+                selected_presenters=selected_presenters,
                 exclude_months=exclude_months,
             )
         else:
             error = "No episodes found with the selected filters."
 
-    # Render the page with filters
-    return render_template("fish.html", episode=None, presenters=["Dan", "Anna", "Andy", "James"], error=error)
+    return render_template(
+        "fish.html",
+        episode=None,
+        presenters=["Dan", "Anna", "Andy", "James"],
+        username=username,
+        is_live=is_live,
+        selected_presenters=selected_presenters,
+        exclude_months=exclude_months,
+        error=error,
+    )
 
 
 if __name__ == "__main__":
