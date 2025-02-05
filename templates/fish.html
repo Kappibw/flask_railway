@@ -50,7 +50,7 @@
     <p><strong>Date:</strong> {{ episode.date }}</p>
     <p><strong>Is Live:</strong> {{ "Yes" if episode.is_live else "No" }}</p>
     <form method="POST">
-        <input type="hidden" name="username" value="{{ username }}">
+        <input type="hidden" name="username" value="{{ username or '' }}">
         <input type="hidden" name="episode_id" value="{{ episode.id }}">
         <input type="hidden" name="action" value="mark_listened">
         <button type="submit">Mark Listened</button>

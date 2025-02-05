@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, redirect, url_for, make_response
 import mysql.connector
 import random
 import os
@@ -249,8 +249,15 @@ def index():
 @app.route("/fish", methods=["GET", "POST"])
 def fish():
     error = None
+    username = request.cookies.get("username")  # Retrieve username from cookie if available
+
     if request.method == "POST":
+        # If the user submitted a username, store it in a cookie
         username = request.form.get("username")
+        if username:
+            resp = make_response(redirect(url_for("fish")))  # Redirect to refresh page with cookie
+            resp.set_cookie("username", username, max_age=60 * 60 * 24 * 30)  # 30 days expiry
+            return resp
         is_live = request.form.get("is_live")
         selected_presenters = request.form.getlist("presenters")
         exclude_months = request.form.get("exclude_months", "all")
@@ -268,6 +275,7 @@ def fish():
             return render_template(
                 "fish.html",
                 episode=None,
+                username=username,
                 presenters=["Dan", "Anna", "Andy", "James"],
                 success="Episode marked as listened!",
             )
@@ -286,6 +294,7 @@ def fish():
             return render_template(
                 "fish.html",
                 episode=episode,
+                username=username,
                 presenters=["Dan", "Anna", "Andy", "James"],
                 username=username,
                 exclude_months=exclude_months,
