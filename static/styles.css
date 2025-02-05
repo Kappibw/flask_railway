@@ -16,6 +16,40 @@ header img {
     left: 10px;
 }
 
+.instruction-text {
+    font-size: 12px;
+    font-style: italic;
+    /* Small font */
+    color: #cccccc;
+    /* Light gray text for readability */
+    margin-top: 5px;
+    /* Small spacing from input */
+}
+
+/* Striped Button */
+.striped-button {
+    background: repeating-linear-gradient(45deg,
+            yellow,
+            yellow 10px,
+            black 10px,
+            black 20px);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-weight: bold;
+    text-transform: uppercase;
+    transition: 0.3s;
+}
+
+/* Hover Effect */
+.striped-button:hover {
+    filter: brightness(1.2);
+}
+
+
 /* Section Headers */
 fieldset legend {
     background-color: yellow;
@@ -25,13 +59,17 @@ fieldset legend {
     border-radius: 5px;
 }
 
+fieldset {
+    margin-block: 1em;
+}
+
 /* Form Styling */
 form {
     margin: 20px auto;
     padding: 20px;
     width: 50%;
     border: 2px solid yellow;
-    background-color: rgba(255, 255, 0, 0.2);
+    background-color: rgba(0, 0, 0, 0.2);
     /* Light yellow transparency */
     border-radius: 10px;
 }

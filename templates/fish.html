@@ -9,17 +9,18 @@
 </head>
 <header>
     <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo">
-    Random Episode Selector
 </header>
 
 <body>
-    <h1>Fish Episodes</h1>
+    <h1>No Such Thing as a Random Episode Selector</h1>
     <form method="POST">
         <fieldset>
             <legend>User Details</legend>
             <label>Username:
-                <input type="text" name="username" value="{{ username or '' }}" required>
+                <input type="text" name="username" value="{{ username or '' }}">
             </label>
+            <p class="instruction-text">Input a username if you want to save the episodes you listen to, so they can be
+                excluded from future results.</p>
         </fieldset>
 
         <fieldset>
@@ -56,7 +57,7 @@
             <button type="submit" name="action" value="see_listened">See Listened Episodes</button>
         </fieldset>
 
-        <button type="submit" name="action" value="get_random_episode">Random Episode</button>
+        <button type="submit" name="action" value="get_random_episode" class="striped-button">Random Episode</button>
     </form>
 
     {% if episode %}
@@ -70,8 +71,28 @@
         <input type="hidden" name="username" value="{{ username or '' }}">
         <input type="hidden" name="episode_id" value="{{ episode.id }}">
         <input type="hidden" name="action" value="mark_listened">
-        <button type="submit">Mark Listened</button>
+        <button type="submit" id="markListenedButton" disabled>Mark Listened</button>
     </form>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const usernameField = document.getElementById("usernameInput");
+            const markListenedButton = document.getElementById("markListenedButton");
+
+            // Enable the button if the username is filled
+            function toggleButton() {
+                if (usernameField.value.trim() !== "") {
+                    markListenedButton.removeAttribute("disabled");
+                } else {
+                    markListenedButton.setAttribute("disabled", "true");
+                }
+            }
+
+            // Run the function initially in case a username is already set
+            toggleButton();
+        });
+    </script>
+
     {% elif error %}
     <p>{{ error }}</p>
     {% elif success %}
@@ -85,8 +106,8 @@
         <li>
             <strong>{{ ep.title }}</strong> ({{ ep.date }})
             - <em>{{ ep.presenters }}</em>
-            - Listened on: {{ ep.listened_at.strftime('%Y-%m-%d %H:%M:%S') }}
-            <form method="POST" style="display:inline;">
+            - Listened on: {{ ep.listened_at }}
+            <form method="POST" style="display:inline; border:none;">
                 <input type="hidden" name="username" value="{{ username }}">
                 <input type="hidden" name="episode_id" value="{{ ep.id }}">
                 <button type="submit" name="action" value="remove_listened">Remove</button>
