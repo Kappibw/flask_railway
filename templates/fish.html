@@ -71,28 +71,8 @@
         <input type="hidden" name="username" value="{{ username or '' }}">
         <input type="hidden" name="episode_id" value="{{ episode.id }}">
         <input type="hidden" name="action" value="mark_listened">
-        <button type="submit" id="markListenedButton" disabled>Mark Listened</button>
+        <button type="submit">Mark Listened</button>
     </form>
-
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const usernameField = document.getElementById("usernameInput");
-            const markListenedButton = document.getElementById("markListenedButton");
-
-            // Enable the button if the username is filled
-            function toggleButton() {
-                if (usernameField.value.trim() !== "") {
-                    markListenedButton.removeAttribute("disabled");
-                } else {
-                    markListenedButton.setAttribute("disabled", "true");
-                }
-            }
-
-            // Run the function initially in case a username is already set
-            toggleButton();
-        });
-    </script>
-
     {% elif error %}
     <p>{{ error }}</p>
     {% elif success %}

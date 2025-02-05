@@ -26,18 +26,18 @@ header img {
     /* Small spacing from input */
 }
 
-/* Striped Button */
 .striped-button {
-    background: repeating-linear-gradient(45deg,
-            yellow,
-            yellow 10px,
-            black 10px,
-            black 20px);
-    color: white;
-    border: none;
+    background-color: black;
+    color: yellow;
     padding: 10px 15px;
     font-size: 16px;
     cursor: pointer;
+    border: 5px solid;
+    border-image: repeating-linear-gradient(45deg,
+            yellow 0px,
+            yellow 10px,
+            black 10px,
+            black 20px) 10;
     border-radius: 5px;
     font-weight: bold;
     text-transform: uppercase;
@@ -48,6 +48,7 @@ header img {
 .striped-button:hover {
     filter: brightness(1.2);
 }
+
 
 
 /* Section Headers */

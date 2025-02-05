@@ -319,7 +319,10 @@ def fish():
 
             # Show listened episodes
         if action == "see_listened":
-            listened_episodes = get_listened_episodes(username)
+            if not user_exists(username):
+                error = "Username not found. Please enter a valid username."
+            else:
+                listened_episodes = get_listened_episodes(username)
 
         # Remove an episode from the listening history
         elif action == "remove_listened" and episode_id:
@@ -328,21 +331,24 @@ def fish():
 
         # Mark episode as listened
         if action == "mark_listened" and episode_id:
-            mark_episode_listened(username, episode_id)
-            resp.set_data(
-                render_template(
-                    "fish.html",
-                    episode=None,
-                    presenters=["Dan", "Anna", "Andrew", "James"],
-                    username=username,
-                    is_live=is_live,
-                    selected_presenters=selected_presenters,
-                    exclude_months=exclude_months,
-                    listened_episodes=get_listened_episodes(username),
-                    success="Episode marked as listened!",
+            if not user_exists(username):
+                error = "Username not found. Please enter a valid username."
+            else:
+                mark_episode_listened(username, episode_id)
+                resp.set_data(
+                    render_template(
+                        "fish.html",
+                        episode=None,
+                        presenters=["Dan", "Anna", "Andrew", "James"],
+                        username=username,
+                        is_live=is_live,
+                        selected_presenters=selected_presenters,
+                        exclude_months=exclude_months,
+                        listened_episodes=get_listened_episodes(username),
+                        success="Episode marked as listened!",
+                    )
                 )
-            )
-            return resp  # Return the modified response
+                return resp  # Return the modified response
 
         if action == "get_random_episode":
             episode = get_filtered_random_episode(is_live, selected_presenters, username, exclude_months)
