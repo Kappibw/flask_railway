@@ -7,12 +7,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fish Episodes</title>
 </head>
-<header>
-    <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo">
-</header>
 
 <body>
-    <h1>No Such Thing as a Random Episode Selector</h1>
+
+    <header>
+        <div>
+            <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo">
+            <h1>No Such Thing as a Random Episode Selector</h1>
+        </div>
+    </header>
+
     <form method="POST">
         <fieldset>
             <legend>User Details</legend>

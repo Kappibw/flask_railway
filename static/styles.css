@@ -6,16 +6,6 @@ body {
     text-align: center;
 }
 
-/* Logo */
-header img {
-    width: 100px;
-    /* Adjust size as needed */
-    height: auto;
-    position: absolute;
-    top: 10px;
-    left: 10px;
-}
-
 .instruction-text {
     font-size: 12px;
     font-style: italic;
@@ -49,6 +39,36 @@ header img {
     filter: brightness(1.2);
 }
 
+header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    text-align: center;
+    padding: 10px;
+}
+
+header img {
+    max-width: 100px;
+    /* Adjust as needed */
+    height: auto;
+}
+
+header h1 {
+    margin: 0;
+    padding: 10px;
+    font-size: 1.5rem;
+}
+
+@media (max-width: 600px) {
+    header {
+        flex-direction: column;
+    }
+
+    header img {
+        margin-bottom: 10px;
+    }
+}
 
 
 /* Section Headers */
