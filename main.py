@@ -68,8 +68,8 @@ def get_filtered_random_episode(is_live_filter, selected_presenters, username, e
 
         if selected_presenters:
             for presenter in selected_presenters:
-                query += " AND presenters LIKE %s"
-                params.append(f"%{presenter}%")
+                query += " AND LOWER(presenters) LIKE LOWER(%s)"
+                params.append(f"%{presenter}%")  # Case-insensitive search
 
         if username and exclude_months != "all":
             exclude_date = datetime.now() - timedelta(days=int(exclude_months) * 30)
@@ -256,56 +256,65 @@ def fish():
     selected_presenters = request.form.getlist("presenters")
     exclude_months = request.form.get("exclude_months", "all")
 
+    resp = make_response()  # Create a response object to modify later
+
     if request.method == "POST":
         episode_id = request.form.get("episode_id")
         action = request.form.get("action")
 
-        # If the user submits a username, store it in a cookie
+        # If the user submits a username, store it in a cookie (but continue processing)
         submitted_username = request.form.get("username")
         if submitted_username:
-            resp = make_response(redirect(url_for("fish")))
-            resp.set_cookie("username", submitted_username, max_age=60 * 60 * 24 * 30)
-            return resp
+            username = submitted_username  # Update username for the session
+            resp.set_cookie("username", username, max_age=60 * 60 * 24 * 30)  # Store for 30 days
 
         # Mark episode as listened
         if action == "mark_listened" and episode_id:
             mark_episode_listened(username, episode_id)
-            return render_template(
-                "fish.html",
-                episode=None,
-                presenters=["Dan", "Anna", "Andy", "James"],
-                username=username,
-                is_live=is_live,
-                selected_presenters=selected_presenters,
-                exclude_months=exclude_months,
-                success="Episode marked as listened!",
+            resp.set_data(
+                render_template(
+                    "fish.html",
+                    episode=None,
+                    presenters=["Dan", "Anna", "Andrew", "James"],
+                    username=username,
+                    is_live=is_live,
+                    selected_presenters=selected_presenters,
+                    exclude_months=exclude_months,
+                    success="Episode marked as listened!",
+                )
             )
+            return resp  # Return the modified response
 
         # Fetch a filtered random episode
         episode = get_filtered_random_episode(is_live, selected_presenters, username, exclude_months)
-        if episode:
-            return render_template(
+        resp.set_data(
+            render_template(
                 "fish.html",
                 episode=episode,
-                presenters=["Dan", "Anna", "Andy", "James"],
+                presenters=["Dan", "Anna", "Andrew", "James"],
                 username=username,
                 is_live=is_live,
                 selected_presenters=selected_presenters,
                 exclude_months=exclude_months,
+                error=None if episode else "No episodes found with the selected filters.",
             )
-        else:
-            error = "No episodes found with the selected filters."
+        )
+        return resp  # Return the modified response
 
-    return render_template(
-        "fish.html",
-        episode=None,
-        presenters=["Dan", "Anna", "Andy", "James"],
-        username=username,
-        is_live=is_live,
-        selected_presenters=selected_presenters,
-        exclude_months=exclude_months,
-        error=error,
+    # Default page load
+    resp.set_data(
+        render_template(
+            "fish.html",
+            episode=None,
+            presenters=["Dan", "Anna", "Andrew", "James"],
+            username=username,
+            is_live=is_live,
+            selected_presenters=selected_presenters,
+            exclude_months=exclude_months,
+            error=error,
+        )
     )
+    return resp
 
 
 if __name__ == "__main__":
