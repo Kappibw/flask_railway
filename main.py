@@ -290,7 +290,7 @@ def periodic_scraper():
 
 @app.route("/")
 def index():
-    return jsonify({"Choo Choo": "Welcome to your Flask app, its kappi 🚅"})
+    return jsonify({"Nothing to see here": "This is the root of the API, there's nothing here. Try thinkkappi.com"})
 
 
 @app.route("/fish", methods=["GET", "POST"])

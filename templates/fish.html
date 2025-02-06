@@ -71,7 +71,7 @@
     <p><strong>Location:</strong> {{ episode.location }}</p>
     <p><strong>Date:</strong> {{ episode.date }}</p>
     <p><strong>Is Live:</strong> {{ "Yes" if episode.is_live else "No" }}</p>
-    <form method="POST">
+    <form method="POST" style="border:none;">
         <input type="hidden" name="username" value="{{ username or '' }}">
         <input type="hidden" name="episode_id" value="{{ episode.id }}">
         <input type="hidden" name="action" value="mark_listened">
