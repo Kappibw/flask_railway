@@ -308,46 +308,64 @@ def whatsapp_webhook():
             return challenge, 200
         else:
             return f"mode: {mode} token: {token}", 403
-    
+
     elif request.method == "POST":
         data = request.get_json()
         print("Incoming webhook message:", data)
+
+        # Extract all messages from the webhook payload
+        messages = (
+            data.get("entry", [{}])[0]
+            .get("changes", [{}])[0]
+            .get("value", {})
+            .get("messages", [])
+        )
+        contacts = (
+            data.get("entry", [{}])[0]
+            .get("changes", [{}])[0]
+            .get("value", {})
+            .get("contacts", [])
+        )
+        business_phone_number_id = (
+            data.get("entry", [{}])[0]
+            .get("changes", [{}])[0]
+            .get("value", {})
+            .get("metadata", {})
+            .get("phone_number_id")
+        )
         
-        message = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [{}])[0]
-        
-        if message and message.get("type") == "text":
-            business_phone_number_id = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("metadata", {}).get("phone_number_id")
-            user_phone_number = message.get("from")
-            text_body = message.get("text", {}).get("body")
-            message_id = message.get("id")
-            
-            if business_phone_number_id and user_phone_number:
-                # Send a reply message
-                reply_payload = {
-                    "messaging_product": "whatsapp",
-                    "to": user_phone_number,
-                    "text": {"body": "Echo: " + text_body},
-                    "context": {"message_id": message_id}
-                }
+        for message_data, contact_data in zip(messages, contacts):
+            # Extract message details
+            message_type = message_data.get("type")
+            text_body = message_data.get("text", {}).get("body") if message_type == "text" else None
+            media_url = (
+                message_data.get("audio", {}).get("link")
+                if message_type == "audio"
+                else None
+            )
+            sender_name = contact_data.get("profile", {}).get("name")
+            sender_number = contact_data.get("wa_id")  # Use wa_id as sender's number
+            received_at = datetime.utcfromtimestamp(int(message_data.get("timestamp", 0)))
+
+            # Save the message to the database
+            try:
+                connection = connect_db()
+                cursor = connection.cursor()
                 
-                requests.post(
-                    f"https://graph.facebook.com/v18.0/{business_phone_number_id}/messages",
-                    headers={"Authorization": f"Bearer {GRAPH_API_TOKEN}"},
-                    json=reply_payload
+                insert_query = """
+                    INSERT INTO vivi_messages (message, received_at, type, media_url, sender_name, sender_number)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(
+                    insert_query,
+                    (text_body, received_at, message_type, media_url, sender_name, sender_number)
                 )
-                
-                # Mark message as read
-                mark_read_payload = {
-                    "messaging_product": "whatsapp",
-                    "status": "read",
-                    "message_id": message_id
-                }
-                
-                requests.post(
-                    f"https://graph.facebook.com/v18.0/{business_phone_number_id}/messages",
-                    headers={"Authorization": f"Bearer {GRAPH_API_TOKEN}"},
-                    json=mark_read_payload
-                )
+                connection.commit()
+                cursor.close()
+                connection.close()
+                print("Message saved to database.")
+            except Exception as e:
+                print(f"Error saving message to database: {e}")
         
         return jsonify({"status": "received"}), 200
 
