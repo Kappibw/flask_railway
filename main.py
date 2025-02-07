@@ -18,6 +18,8 @@ DB_USER = os.getenv("MYSQLUSER")
 DB_PASSWORD = os.getenv("MYSQL_ROOT_PASSWORD")
 DB_PORT = os.getenv("MYSQLPORT")
 DB_NAME = os.getenv("MYSQL_DATABASE")
+META_WEBHOOK_VERIFY_TOKEN = os.getenv("META_WEBHOOK_VERIFY_TOKEN")
+GRAPH_API_TOKEN = os.getenv("GRAPH_API_TOKEN")
 
 BASE_URL = "https://nstaaf.fandom.com"
 MAIN_URL = f"{BASE_URL}/wiki/List_of_Episodes_of_No_Such_Thing_As_A_Fish"
@@ -291,6 +293,63 @@ def periodic_scraper():
 @app.route("/")
 def index():
     return jsonify({"Nothing to see here": "This is the root of the API, there's nothing here. Try thinkkappi.com"})
+
+
+@app.route("/vivi", methods=["GET", "POST"])
+def whatsapp_webhook():
+    if request.method == "GET":
+        # Verification step for webhook setup
+        mode = request.args.get("hub.mode")
+        token = request.args.get("hub.verify_token")
+        challenge = request.args.get("hub.challenge")
+
+        if mode == "subscribe" and token == WEBHOOK_VERIFY_TOKEN:
+            print("Webhook verified successfully!")
+            return challenge, 200
+        else:
+            return "Forbidden", 403
+    
+    elif request.method == "POST":
+        data = request.get_json()
+        print("Incoming webhook message:", data)
+        
+        message = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [{}])[0]
+        
+        if message and message.get("type") == "text":
+            business_phone_number_id = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("metadata", {}).get("phone_number_id")
+            user_phone_number = message.get("from")
+            text_body = message.get("text", {}).get("body")
+            message_id = message.get("id")
+            
+            if business_phone_number_id and user_phone_number:
+                # Send a reply message
+                reply_payload = {
+                    "messaging_product": "whatsapp",
+                    "to": user_phone_number,
+                    "text": {"body": "Echo: " + text_body},
+                    "context": {"message_id": message_id}
+                }
+                
+                requests.post(
+                    f"https://graph.facebook.com/v18.0/{business_phone_number_id}/messages",
+                    headers={"Authorization": f"Bearer {GRAPH_API_TOKEN}"},
+                    json=reply_payload
+                )
+                
+                # Mark message as read
+                mark_read_payload = {
+                    "messaging_product": "whatsapp",
+                    "status": "read",
+                    "message_id": message_id
+                }
+                
+                requests.post(
+                    f"https://graph.facebook.com/v18.0/{business_phone_number_id}/messages",
+                    headers={"Authorization": f"Bearer {GRAPH_API_TOKEN}"},
+                    json=mark_read_payload
+                )
+        
+        return jsonify({"status": "received"}), 200
 
 
 @app.route("/fish", methods=["GET", "POST"])
