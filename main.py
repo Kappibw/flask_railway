@@ -303,7 +303,7 @@ def whatsapp_webhook():
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
 
-        if mode == "subscribe" and token == WEBHOOK_VERIFY_TOKEN:
+        if mode == "subscribe" and token == META_WEBHOOK_VERIFY_TOKEN:
             print("Webhook verified successfully!")
             return challenge, 200
         else:
