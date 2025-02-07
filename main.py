@@ -307,7 +307,7 @@ def whatsapp_webhook():
             print("Webhook verified successfully!")
             return challenge, 200
         else:
-            return "Forbidden", 403
+            return f"mode: {mode} token: {token}", 403
     
     elif request.method == "POST":
         data = request.get_json()
