@@ -306,6 +306,7 @@ def get_media_url(media_id):
 
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
+        print(f"Fetched media URL: {response.json().get('url')}")
         return response.json().get("url")
     else:
         print(f"Failed to fetch media URL: {response.json()}")
@@ -319,6 +320,7 @@ def download_and_convert_audio(media_url):
     try:
         response = requests.get(media_url, stream=True)
         if response.status_code == 200:
+            print("Audio file retreived successfully.")
             # Save the audio file temporarily
             with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as temp_ogg:
                 temp_ogg.write(response.content)
@@ -385,6 +387,8 @@ def whatsapp_webhook():
                     audio_mp3 = download_and_convert_audio(media_url)
                     if audio_mp3:
                         print("Audio converted and stored as MP3.")
+                    else:
+                        print("Error converting audio to MP3.")
 
             # Save message to database
             try:
