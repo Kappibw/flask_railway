@@ -302,7 +302,7 @@ def get_media_url(media_id):
     Fetches the media URL from Meta's API using the media ID.
     """
     url = f"https://graph.facebook.com/v18.0/{media_id}"
-    headers = {"Authorization": f"Bearer {META_ACCESS_TOKEN}"}
+    headers = {"Authorization": f"Bearer {GRAPH_API_TOKEN}"}
 
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
