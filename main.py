@@ -1,6 +1,5 @@
-from flask import Flask, jsonify, render_template, request, redirect, url_for, make_response
+from flask import Flask, jsonify, render_template, request, make_response, Response
 import mysql.connector
-import tempfile
 import random
 import os
 import requests
@@ -10,7 +9,6 @@ import urllib.parse
 from datetime import datetime, timedelta
 import threading
 import time
-import subprocess
 
 app = Flask(__name__)
 
@@ -313,69 +311,50 @@ def get_media_url(media_id):
         return None
 
 
-def download_and_convert_audio(media_url):
+def download_ogg_file(media_url, graph_api_token):
     """
-    Downloads the audio file from the media URL, converts it to MP3, and returns binary data.
+    Downloads the OGG file from the Meta API and returns it as binary data for storage in MySQL.
     """
     try:
-        headers = {"Authorization": f"Bearer {GRAPH_API_TOKEN}"}
+        headers = {"Authorization": f"Bearer {graph_api_token}"}
         response = requests.get(media_url, headers=headers, stream=True)
+
         if response.status_code == 200:
             print("✅ Audio file retrieved successfully.")
+            return response.content  # Return OGG binary data directly
 
-            # Save the audio file temporarily
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as temp_ogg:
-                temp_ogg.write(response.content)
-                temp_ogg_path = temp_ogg.name
-
-            print(f"📂 Saved OGG file at: {temp_ogg_path}")
-            print(f"📏 File size: {os.path.getsize(temp_ogg_path)} bytes")
-
-            # Check if the file is actually an OGG file
-            with open(temp_ogg_path, "rb") as f:
-                header = f.read(4)
-                print(f"🔍 File header (first 4 bytes): {header}")
-
-            # If the file size is 0 or the header is wrong, stop here
-            if os.path.getsize(temp_ogg_path) == 0:
-                print("🚨 Error: The downloaded file is empty!")
-                return None
-            if header[:4] != b"OggS":
-                print("🚨 Error: The file is not in OGG format!")
-                return None
-
-                # Convert OGG to MP3 using ffmpeg
-            temp_mp3_path = temp_ogg_path.replace(".ogg", ".mp3")
-            try:
-                command = ["ffmpeg", "-y", "-i", temp_ogg_path, "-acodec", "libmp3lame", "-ab", "128k", temp_mp3_path]
-                result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-                if result.returncode != 0:
-                    print("🚨 ffmpeg conversion failed!")
-                    print(result.stderr.decode("utf-8"))
-                    return None
-
-                print(f"🎵 MP3 file saved at: {temp_mp3_path}")
-
-                # Read MP3 as binary
-                with open(temp_mp3_path, "rb") as mp3_file:
-                    audio_mp3 = mp3_file.read()
-
-                # Cleanup temporary files
-                os.remove(temp_ogg_path)
-                os.remove(temp_mp3_path)
-
-                return audio_mp3
-
-            except Exception as e:
-                print(f"🚨 Error during ffmpeg conversion: {e}")
-                return None
         else:
-            print(f"Failed to download audio file: {response.json()}")
+            print(f"❌ Failed to download audio file: {response.status_code}, {response.text}")
+            return None
 
     except Exception as e:
-        print(f"Error processing audio file: {e}")
-    return None
+        print(f"🚨 Error processing OGG file: {e}")
+        return None
+
+
+@app.route("/vivi/get_audio/<message_id>", methods=["GET"])
+def get_audio(message_id):
+    """
+    Serves the stored OGG file for a given message ID.
+    """
+    try:
+        connection = connect_db()
+        cursor = connection.cursor()
+
+        query = "SELECT audio_ogg FROM vivi_messages WHERE id = %s"
+        cursor.execute(query, (message_id,))
+        audio_data = cursor.fetchone()
+
+        cursor.close()
+        connection.close()
+
+        if audio_data and audio_data[0]:
+            return Response(audio_data[0], mimetype="audio/ogg")
+        else:
+            return "Audio file not found", 404
+
+    except Exception as e:
+        return f"Error: {e}", 500
 
 
 @app.route("/vivi", methods=["GET", "POST"])
@@ -416,11 +395,11 @@ def whatsapp_webhook():
                 media_url = get_media_url(media_id)
                 if media_url:
                     # Step 2: Download & convert audio to MP3
-                    audio_mp3 = download_and_convert_audio(media_url)
-                    if audio_mp3:
-                        print("Audio converted and stored as MP3.")
+                    audio_ogg = download_ogg_file(media_url)
+                    if audio_ogg:
+                        print("Audio retrieved.")
                     else:
-                        print("Error converting audio to MP3.")
+                        print("Error retrieving audio from meta.")
 
             # Save message to database
             try:
@@ -428,11 +407,11 @@ def whatsapp_webhook():
                 cursor = connection.cursor()
 
                 insert_query = """
-                    INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_mp3)
+                    INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_ogg)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(
-                    insert_query, (text_body, received_at, message_type, sender_name, sender_number, audio_mp3)
+                    insert_query, (text_body, received_at, message_type, sender_name, sender_number, audio_ogg)
                 )
                 connection.commit()
                 cursor.close()
