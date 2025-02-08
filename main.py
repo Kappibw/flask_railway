@@ -340,6 +340,8 @@ def download_and_convert_audio(media_url):
             os.remove(temp_mp3_path)
 
             return audio_mp3
+        else:
+            print(f"Failed to download audio file: {response.json()}")
 
     except Exception as e:
         print(f"Error processing audio file: {e}")
