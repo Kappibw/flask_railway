@@ -1,7 +1,6 @@
 from flask import Flask, jsonify, render_template, request, redirect, url_for, make_response
 import mysql.connector
 import tempfile
-from pydub import AudioSegment
 import random
 import os
 import requests
@@ -11,6 +10,7 @@ import urllib.parse
 from datetime import datetime, timedelta
 import threading
 import time
+import subprocess
 
 app = Flask(__name__)
 
@@ -344,26 +344,32 @@ def download_and_convert_audio(media_url):
                 print("🚨 Error: The file is not in OGG format!")
                 return None
 
-            # Convert OGG to MP3
+                # Convert OGG to MP3 using ffmpeg
             temp_mp3_path = temp_ogg_path.replace(".ogg", ".mp3")
             try:
-                audio = AudioSegment.from_file(temp_ogg_path, format="ogg")
-                audio.export(temp_mp3_path, format="mp3")
+                command = ["ffmpeg", "-y", "-i", temp_ogg_path, "-acodec", "libmp3lame", "-ab", "128k", temp_mp3_path]
+                result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+                if result.returncode != 0:
+                    print("🚨 ffmpeg conversion failed!")
+                    print(result.stderr.decode("utf-8"))
+                    return None
+
+                print(f"🎵 MP3 file saved at: {temp_mp3_path}")
+
+                # Read MP3 as binary
+                with open(temp_mp3_path, "rb") as mp3_file:
+                    audio_mp3 = mp3_file.read()
+
+                # Cleanup temporary files
+                os.remove(temp_ogg_path)
+                os.remove(temp_mp3_path)
+
+                return audio_mp3
+
             except Exception as e:
-                print(f"🚨 Error during conversion: {e}")
+                print(f"🚨 Error during ffmpeg conversion: {e}")
                 return None
-
-            print(f"🎵 MP3 file saved at: {temp_mp3_path}")
-
-            # Read MP3 as binary
-            with open(temp_mp3_path, "rb") as mp3_file:
-                audio_mp3 = mp3_file.read()
-
-            # Cleanup temporary files
-            os.remove(temp_ogg_path)
-            os.remove(temp_mp3_path)
-
-            return audio_mp3
         else:
             print(f"Failed to download audio file: {response.json()}")
 
