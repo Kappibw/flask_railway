@@ -1,5 +1,7 @@
 from flask import Flask, jsonify, render_template, request, redirect, url_for, make_response
 import mysql.connector
+import tempfile
+from pydub import AudioSegment
 import random
 import os
 import requests
@@ -295,10 +297,56 @@ def index():
     return jsonify({"Nothing to see here": "This is the root of the API, there's nothing here. Try thinkkappi.com"})
 
 
+def get_media_url(media_id):
+    """
+    Fetches the media URL from Meta's API using the media ID.
+    """
+    url = f"https://graph.facebook.com/v18.0/{media_id}"
+    headers = {"Authorization": f"Bearer {META_ACCESS_TOKEN}"}
+
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json().get("url")
+    else:
+        print(f"Failed to fetch media URL: {response.json()}")
+        return None
+
+
+def download_and_convert_audio(media_url):
+    """
+    Downloads the audio file from the media URL, converts it to MP3, and returns binary data.
+    """
+    try:
+        response = requests.get(media_url, stream=True)
+        if response.status_code == 200:
+            # Save the audio file temporarily
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as temp_ogg:
+                temp_ogg.write(response.content)
+                temp_ogg_path = temp_ogg.name
+
+            # Convert OGG to MP3
+            temp_mp3_path = temp_ogg_path.replace(".ogg", ".mp3")
+            audio = AudioSegment.from_file(temp_ogg_path, format="ogg")
+            audio.export(temp_mp3_path, format="mp3")
+
+            # Read MP3 as binary
+            with open(temp_mp3_path, "rb") as mp3_file:
+                audio_mp3 = mp3_file.read()
+
+            # Cleanup temporary files
+            os.remove(temp_ogg_path)
+            os.remove(temp_mp3_path)
+
+            return audio_mp3
+
+    except Exception as e:
+        print(f"Error processing audio file: {e}")
+    return None
+
+
 @app.route("/vivi", methods=["GET", "POST"])
 def whatsapp_webhook():
     if request.method == "GET":
-        # Verification step for webhook setup
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
@@ -313,52 +361,39 @@ def whatsapp_webhook():
         data = request.get_json()
         print("Incoming webhook message:", data)
 
-        # Extract all messages from the webhook payload
-        messages = (
-            data.get("entry", [{}])[0]
-            .get("changes", [{}])[0]
-            .get("value", {})
-            .get("messages", [])
-        )
-        contacts = (
-            data.get("entry", [{}])[0]
-            .get("changes", [{}])[0]
-            .get("value", {})
-            .get("contacts", [])
-        )
-        business_phone_number_id = (
-            data.get("entry", [{}])[0]
-            .get("changes", [{}])[0]
-            .get("value", {})
-            .get("metadata", {})
-            .get("phone_number_id")
-        )
-        
+        messages = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [])
+        contacts = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [])
+
         for message_data, contact_data in zip(messages, contacts):
-            # Extract message details
             message_type = message_data.get("type")
             text_body = message_data.get("text", {}).get("body") if message_type == "text" else None
-            media_url = (
-                message_data.get("audio", {}).get("link")
-                if message_type == "audio"
-                else None
-            )
+            media_id = message_data.get("audio", {}).get("id") if message_type == "audio" else None
             sender_name = contact_data.get("profile", {}).get("name")
-            sender_number = contact_data.get("wa_id")  # Use wa_id as sender's number
+            sender_number = contact_data.get("wa_id")
             received_at = datetime.utcfromtimestamp(int(message_data.get("timestamp", 0)))
 
-            # Save the message to the database
+            audio_mp3 = None  # Variable to store converted MP3 binary
+
+            if message_type == "audio" and media_id:
+                # Step 1: Retrieve the media URL from Meta's API
+                media_url = get_media_url(media_id)
+                if media_url:
+                    # Step 2: Download & convert audio to MP3
+                    audio_mp3 = download_and_convert_audio(media_url)
+                    if audio_mp3:
+                        print("Audio converted and stored as MP3.")
+
+            # Save message to database
             try:
                 connection = connect_db()
                 cursor = connection.cursor()
-                
+
                 insert_query = """
-                    INSERT INTO vivi_messages (message, received_at, type, media_url, sender_name, sender_number)
+                    INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_mp3)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(
-                    insert_query,
-                    (text_body, received_at, message_type, media_url, sender_name, sender_number)
+                    insert_query, (text_body, received_at, message_type, sender_name, sender_number, audio_mp3)
                 )
                 connection.commit()
                 cursor.close()
@@ -366,7 +401,7 @@ def whatsapp_webhook():
                 print("Message saved to database.")
             except Exception as e:
                 print(f"Error saving message to database: {e}")
-        
+
         return jsonify({"status": "received"}), 200
 
 
