@@ -321,16 +321,39 @@ def download_and_convert_audio(media_url):
         headers = {"Authorization": f"Bearer {GRAPH_API_TOKEN}"}
         response = requests.get(media_url, headers=headers, stream=True)
         if response.status_code == 200:
-            print("Audio file retreived successfully.")
+            print("✅ Audio file retrieved successfully.")
+
             # Save the audio file temporarily
             with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as temp_ogg:
                 temp_ogg.write(response.content)
                 temp_ogg_path = temp_ogg.name
 
+            print(f"📂 Saved OGG file at: {temp_ogg_path}")
+            print(f"📏 File size: {os.path.getsize(temp_ogg_path)} bytes")
+
+            # Check if the file is actually an OGG file
+            with open(temp_ogg_path, "rb") as f:
+                header = f.read(4)
+                print(f"🔍 File header (first 4 bytes): {header}")
+
+            # If the file size is 0 or the header is wrong, stop here
+            if os.path.getsize(temp_ogg_path) == 0:
+                print("🚨 Error: The downloaded file is empty!")
+                return None
+            if header[:4] != b"OggS":
+                print("🚨 Error: The file is not in OGG format!")
+                return None
+
             # Convert OGG to MP3
             temp_mp3_path = temp_ogg_path.replace(".ogg", ".mp3")
-            audio = AudioSegment.from_file(temp_ogg_path, format="ogg")
-            audio.export(temp_mp3_path, format="mp3")
+            try:
+                audio = AudioSegment.from_file(temp_ogg_path, format="ogg")
+                audio.export(temp_mp3_path, format="mp3")
+            except Exception as e:
+                print(f"🚨 Error during conversion: {e}")
+                return None
+
+            print(f"🎵 MP3 file saved at: {temp_mp3_path}")
 
             # Read MP3 as binary
             with open(temp_mp3_path, "rb") as mp3_file:
