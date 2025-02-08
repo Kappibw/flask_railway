@@ -395,7 +395,7 @@ def whatsapp_webhook():
                 media_url = get_media_url(media_id)
                 if media_url:
                     # Step 2: Download & convert audio to MP3
-                    audio_ogg = download_ogg_file(media_url)
+                    audio_ogg = download_ogg_file(media_url, GRAPH_API_TOKEN)
                     if audio_ogg:
                         print("Audio retrieved.")
                     else:
