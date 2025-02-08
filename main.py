@@ -374,7 +374,10 @@ def whatsapp_webhook():
 
             audio_mp3 = None  # Variable to store converted MP3 binary
 
+            print(f"Received message from {sender_name} ({sender_number}). Type: {message_type}")
+
             if message_type == "audio" and media_id:
+                print(f"Received audio message with media ID: {media_id}")
                 # Step 1: Retrieve the media URL from Meta's API
                 media_url = get_media_url(media_id)
                 if media_url:
