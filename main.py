@@ -318,7 +318,8 @@ def download_and_convert_audio(media_url):
     Downloads the audio file from the media URL, converts it to MP3, and returns binary data.
     """
     try:
-        response = requests.get(media_url, stream=True)
+        headers = {"Authorization": f"Bearer {GRAPH_API_TOKEN}"}
+        response = requests.get(media_url, headers=headers, stream=True)
         if response.status_code == 200:
             print("Audio file retreived successfully.")
             # Save the audio file temporarily
