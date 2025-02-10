@@ -141,6 +141,7 @@ def whatsapp_webhook():
 
             print(f"Received message from {sender_name} ({sender_number}). Type: {message_type}")
 
+            audio_ogg = None
             if message_type == "audio" and media_id:
                 print(f"Received audio message with media ID: {media_id}")
                 # Step 1: Retrieve the media URL from Meta's API
