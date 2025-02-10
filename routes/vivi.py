@@ -54,6 +54,38 @@ def get_media_url(media_id):
     return response.json().get("url") if response.status_code == 200 else None
 
 
+@vivi.route("/vivi/get_post", defaults={"message_id": None}, methods=["GET"])
+@vivi.route("/vivi/get_post/<message_id>", methods=["GET"])
+def get_post(message_id):
+    """
+    Retrieves a text message from the database. If message_id is provided, fetches the corresponding message.
+    If no message_id is provided, fetches the last message where type is "text".
+    """
+    try:
+        connection = connect_db()
+        cursor = connection.cursor(dictionary=True)
+
+        if message_id:
+            query = "SELECT sender_name, message FROM vivi_messages WHERE id = %s"
+            cursor.execute(query, (message_id,))
+        else:
+            query = "SELECT sender_name, message FROM vivi_messages WHERE type = 'text' ORDER BY id DESC LIMIT 1"
+            cursor.execute(query)
+
+        message_data = cursor.fetchone()
+
+        cursor.close()
+        connection.close()
+
+        if message_data:
+            return jsonify(message_data)
+        else:
+            return "Message not found", 404
+
+    except Exception as e:
+        return f"Error: {e}", 500
+
+
 @vivi.route("/vivi/get_audio/<message_id>", methods=["GET"])
 def get_audio(message_id):
     """
