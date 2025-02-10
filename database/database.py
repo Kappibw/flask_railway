@@ -155,3 +155,10 @@ def mark_episode_listened(username, episode_id):
     finally:
         cursor.close()
         conn.close()
+
+
+def get_episode_by_number(episode_number):
+    """Retrieve an episode from the database by its episode number."""
+    query = "SELECT * FROM episodes WHERE number = %s"
+    result = db_execute(query, (episode_number,))  # Modify as per your DB execution function
+    return result[0] if result else None

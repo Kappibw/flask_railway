@@ -101,6 +101,16 @@
     </ul>
     {% endif %}
 
+    <form method="POST">
+        <fieldset>
+            <legend>Load Episode</legend>
+            <label>Episode Number:
+                <input type="number" name="episode_number" min="1" required>
+            </label>
+            <button type="submit" name="action" value="load_episode">Load Episode</button>
+        </fieldset>
+    </form>
+
 </body>
 
 </html>

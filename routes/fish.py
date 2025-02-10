@@ -5,6 +5,7 @@ from database.database import (
     mark_episode_listened,
     remove_listened_episode,
     get_filtered_random_episode,
+    get_episode_by_number,  # New function to fetch an episode by number
 )
 
 fish = Blueprint("fish", __name__)
@@ -28,13 +29,13 @@ def landing_page():
         episode_id = request.form.get("episode_id")
         action = request.form.get("action")
 
-        # If the user submits a username, store it in a cookie (but continue processing)
+        # If the user submits a username, store it in a cookie
         submitted_username = request.form.get("username")
         if submitted_username:
-            username = submitted_username  # Update username for the session
-            resp.set_cookie("username", username, max_age=60 * 60 * 24 * 30)  # Store for 30 days
+            username = submitted_username
+            resp.set_cookie("username", username, max_age=60 * 60 * 24 * 30)
 
-            # Show listened episodes
+        # Show listened episodes
         if action == "see_listened":
             if not fish_user_exists(username):
                 error = "Username not found. Please enter a valid username."
@@ -44,10 +45,10 @@ def landing_page():
         # Remove an episode from the listening history
         elif action == "remove_listened" and episode_id:
             remove_listened_episode(username, episode_id)
-            listened_episodes = get_listened_episodes(username)  # Refresh list
+            listened_episodes = get_listened_episodes(username)
 
         # Mark episode as listened
-        if action == "mark_listened" and episode_id:
+        elif action == "mark_listened" and episode_id:
             if not fish_user_exists(username):
                 error = "Username not found. Please enter a valid username."
             else:
@@ -65,12 +66,23 @@ def landing_page():
                         success="Episode marked as listened!",
                     )
                 )
-                return resp  # Return the modified response
+                return resp
 
-        if action == "get_random_episode":
+        # Fetch a random episode
+        elif action == "get_random_episode":
             episode = get_filtered_random_episode(is_live, selected_presenters, username, exclude_months)
             if not episode:
                 error = "No episodes found with the selected filters."
+
+        # Load an episode by number
+        elif action == "load_episode":
+            episode_number = request.form.get("episode_number")
+            if episode_number:
+                episode = get_episode_by_number(episode_number)
+                if not episode:
+                    error = f"No episode found with number {episode_number}."
+            else:
+                error = "Please enter an episode number."
 
     resp.set_data(
         render_template(
@@ -85,4 +97,4 @@ def landing_page():
             error=error,
         )
     )
-    return resp  # Return the modified response
+    return resp
