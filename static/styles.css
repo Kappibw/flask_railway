@@ -6,6 +6,14 @@ body {
     text-align: center;
 }
 
+a {
+    color: #E7D22F;
+}
+
+a:hover {
+    color: #FFD700;
+}
+
 .instruction-text {
     font-size: 12px;
     font-style: italic;
@@ -18,14 +26,14 @@ body {
 
 .striped-button {
     background-color: black;
-    color: yellow;
+    color: #E7D22F;
     padding: 10px 15px;
     font-size: 16px;
     cursor: pointer;
     border: 5px solid;
     border-image: repeating-linear-gradient(45deg,
-            yellow 0px,
-            yellow 10px,
+            #E7D22F 0px,
+            #E7D22F 10px,
             black 10px,
             black 20px) 10;
     border-radius: 5px;
@@ -73,7 +81,7 @@ header h1 {
 
 /* Section Headers */
 fieldset legend {
-    background-color: yellow;
+    background-color: #E7D22F;
     color: black;
     padding: 10px;
     font-weight: bold;
@@ -89,15 +97,15 @@ form {
     margin: 20px auto;
     padding: 20px;
     width: 50%;
-    border: 2px solid yellow;
+    border: 2px solid #E7D22F;
     background-color: rgba(0, 0, 0, 0.2);
-    /* Light yellow transparency */
+    /* Light #E7D22F transparency */
     border-radius: 10px;
 }
 
 /* Buttons */
 button {
-    background-color: yellow;
+    background-color: #E7D22F;
     color: black;
     border: none;
     padding: 10px 15px;
