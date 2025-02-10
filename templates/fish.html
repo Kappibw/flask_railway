@@ -60,8 +60,8 @@
                     {% for i in range(1, 7) %}
                     <option value="{{ i }}" {% if exclude_months==i|string %}selected{% endif %}>{{ i }} month{{ 's' if
                         i > 1 else '' }}</option>
-                    <option value="none" {% if exclude_months=='none' %}selected{% endif %}>None</option>
                     {% endfor %}
+                    <option value="none" {% if exclude_months=='none' %}selected{% endif %}>None</option>
                 </select>
             </label>
             <button type="submit" name="action" value="see_listened">See Listened Episodes</button>

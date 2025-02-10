@@ -128,7 +128,9 @@ def get_filtered_random_episode(is_live_filter, selected_presenters, username, e
         for episode in episodes:
             episode["title"] = html.unescape(urllib.parse.unquote(episode["title"]))
 
+        return episodes[0]  # testing purposes
         return random.choice(episodes) if episodes else None
+
     except Exception as err:
         print(f"Error: {err}")
         return None
