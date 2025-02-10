@@ -14,6 +14,10 @@
         <div>
             <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo">
             <h1>No Such Thing as a Random Episode Selector</h1>
+            <p class="instruction-text">Thank you to the folks at <a
+                    href="https://nstaaf.fandom.com/wiki/List_of_Episodes_of_No_Such_Thing_As_A_Fish"
+                    target="_blank">nstaaf.fandom.com</a> for their hard work curating the data that powers this site.
+            </p>
         </div>
     </header>
 
@@ -24,7 +28,8 @@
                 <input type="text" name="username" value="{{ username or '' }}">
             </label>
             <p class="instruction-text">Input a username if you want to save the episodes you listen to, so they can be
-                excluded from future results.</p>
+                excluded from future results. <a href="https://www.thinkkappi.com/contact" target="_blank">Contact
+                    me</a> if you'd like a username.</p>
         </fieldset>
 
         <fieldset>
