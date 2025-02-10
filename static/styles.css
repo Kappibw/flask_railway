@@ -6,14 +6,6 @@ body {
     text-align: center;
 }
 
-a {
-    color: #E7D22F;
-}
-
-a:hover {
-    color: #FFD700;
-}
-
 .instruction-text {
     font-size: 12px;
     font-style: italic;
@@ -22,6 +14,10 @@ a:hover {
     /* Light gray text for readability */
     margin-top: 5px;
     /* Small spacing from input */
+}
+
+.instruction-text a {
+    color: #E7D22F;
 }
 
 .striped-button {
