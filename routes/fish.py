@@ -5,7 +5,7 @@ from database.database import (
     mark_episode_listened,
     remove_listened_episode,
     get_filtered_random_episode,
-    get_episode_by_number,  # New function to fetch an episode by number
+    get_episode_by_number,
 )
 
 fish = Blueprint("fish", __name__)

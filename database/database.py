@@ -103,7 +103,7 @@ def get_filtered_random_episode(is_live_filter, selected_presenters, username, e
                 query += " AND LOWER(presenters) LIKE LOWER(%s)"
                 params.append(f"%{presenter}%")  # Case-insensitive search
 
-        if username and exclude_months != "all":
+        if username and exclude_months != "all" and exclude_months != "none":
             exclude_date = datetime.now() - timedelta(days=int(exclude_months) * 30)
             query += """
             AND id NOT IN (
@@ -113,7 +113,7 @@ def get_filtered_random_episode(is_live_filter, selected_presenters, username, e
             )
             """
             params.extend([username, exclude_date])
-        elif username:
+        elif username and exclude_months == "all":
             query += """
             AND id NOT IN (
                 SELECT episode_id FROM fish_listening_history
