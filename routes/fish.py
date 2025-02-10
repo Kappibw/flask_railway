@@ -10,7 +10,7 @@ from database.database import (
 fish = Blueprint("fish", __name__)
 
 
-@app.route("/fish", methods=["GET", "POST"])
+@fish.route("/fish", methods=["GET", "POST"])
 def fish():
     error = None
     username = request.cookies.get("username")  # Retrieve username from cookie

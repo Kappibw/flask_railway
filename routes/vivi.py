@@ -54,7 +54,7 @@ def get_media_url(media_id):
     return response.json().get("url") if response.status_code == 200 else None
 
 
-@app.route("/vivi/get_audio/<message_id>", methods=["GET"])
+@vivi.route("/vivi/get_audio/<message_id>", methods=["GET"])
 def get_audio(message_id):
     """
     Serves the stored OGG file for a given message ID.
@@ -79,7 +79,7 @@ def get_audio(message_id):
         return f"Error: {e}", 500
 
 
-@app.route("/vivi", methods=["GET", "POST"])
+@vivi.route("/vivi", methods=["GET", "POST"])
 def whatsapp_webhook():
     if request.method == "GET":
         mode = request.args.get("hub.mode")
