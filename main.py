@@ -4,8 +4,8 @@ from routes.fish import fish
 
 app = Flask(
     __name__,
-    template_folder="templates",  # Ensures Flask finds your HTML templates
-    static_folder="static",  # Ensures Flask finds CSS, JS, images, etc.
+    template_folder="templates",
+    static_folder="static",
 )
 
 # Register Blueprints

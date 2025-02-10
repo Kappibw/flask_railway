@@ -11,7 +11,7 @@ fish = Blueprint("fish", __name__)
 
 
 @fish.route("/fish", methods=["GET", "POST"])
-def fish():
+def landing_page():
     error = None
     username = request.cookies.get("username")  # Retrieve username from cookie
 
