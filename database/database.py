@@ -162,7 +162,7 @@ def get_episode_by_number(episode_number):
     try:
         conn = connect_db()
         cursor = conn.cursor(dictionary=True)
-        query = "SELECT * FROM episodes WHERE number = %s"
+        query = "SELECT * FROM fish_episodes WHERE number = %s"
         cursor.execute(query, (episode_number,))
         return cursor.fetchone()
     except Exception as err:
