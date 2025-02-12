@@ -164,6 +164,7 @@ def get_audio(message_id):
 
 @vivi.route("/vivi", methods=["GET", "POST"])
 def whatsapp_webhook():
+    print("Incoming webhook request:", request.method)
     if request.method == "GET":
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
