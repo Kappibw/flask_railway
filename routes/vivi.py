@@ -1,4 +1,6 @@
 from flask import Blueprint, jsonify, request, Response
+import ffmpeg
+import io
 import requests
 import os
 from datetime import datetime
@@ -7,6 +9,55 @@ from database.database import connect_db
 vivi = Blueprint("vivi", __name__)
 GRAPH_API_TOKEN = os.getenv("GRAPH_API_TOKEN")
 META_WEBHOOK_VERIFY_TOKEN = os.getenv("META_WEBHOOK_VERIFY_TOKEN")
+
+# Bunny.net storage details
+BUNNY_STORAGE_ZONE = os.getenv("BUNNY_STORAGE_ZONE")
+BUNNY_API_KEY = os.getenv("BUNNY_API_KEY")
+BUNNY_STORAGE_URL = f"https://storage.bunnycdn.com/{BUNNY_STORAGE_ZONE}"
+
+
+def convert_ogg_to_mp3(audio_ogg, media_id):
+    """Convert OGG to MP3 and upload to Bunny.net, returning the MP3 URL."""
+    try:
+        # Convert OGG to MP3
+        print("Converting OGG to MP3...")
+        input_stream = io.BytesIO(audio_ogg)
+        output_stream = io.BytesIO()
+
+        process = (
+            ffmpeg.input("pipe:0", format="ogg")
+            .output("pipe:1", format="mp3", audio_bitrate="192k")
+            .run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
+        )
+
+        mp3_data, err = process.communicate(input_stream.read())
+
+        if process.returncode != 0:
+            print(f"FFmpeg error: {err}")
+            return None
+
+        print("Conversion successful!")
+
+        # Upload MP3 to Bunny.net
+        filename = f"audio_{media_id}.mp3"
+        headers = {
+            "AccessKey": BUNNY_API_KEY,
+            "Content-Type": "audio/mpeg",
+        }
+        response = requests.put(f"{BUNNY_STORAGE_URL}/{filename}", headers=headers, data=mp3_data)
+
+        if response.status_code != 201:
+            print(f"Failed to upload MP3 to Bunny.net: {response.text}")
+            return None
+
+        mp3_url = f"https://{BUNNY_STORAGE_ZONE}.b-cdn.net/{filename}"
+        print(f"MP3 uploaded successfully: {mp3_url}")
+
+        return mp3_url
+
+    except Exception as e:
+        print(f"Error during conversion or upload: {e}")
+        return None
 
 
 def get_media_url(media_id):
@@ -142,6 +193,7 @@ def whatsapp_webhook():
             print(f"Received message from {sender_name} ({sender_number}). Type: {message_type}")
 
             audio_ogg = None
+            mp3_url = None
             if message_type == "audio" and media_id:
                 print(f"Received audio message with media ID: {media_id}")
                 # Step 1: Retrieve the media URL from Meta's API
@@ -151,6 +203,8 @@ def whatsapp_webhook():
                     audio_ogg = download_ogg_file(media_url, GRAPH_API_TOKEN)
                     if audio_ogg:
                         print("Audio retrieved.")
+                        mp3_url = convert_ogg_to_mp3(audio_ogg, received_at.timestamp())
+                        print(f"MP3 conversion completed {'successfully' if mp3_url else 'unsuccessfully'}.")
                     else:
                         print("Error retrieving audio from meta.")
 
@@ -160,11 +214,11 @@ def whatsapp_webhook():
                 cursor = connection.cursor()
 
                 insert_query = """
-                    INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_ogg)
+                    INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_ogg, mp3_url)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(
-                    insert_query, (text_body, received_at, message_type, sender_name, sender_number, audio_ogg)
+                    insert_query, (text_body, received_at, message_type, sender_name, sender_number, audio_ogg, mp3_url)
                 )
                 connection.commit()
                 cursor.close()
