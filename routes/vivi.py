@@ -13,7 +13,7 @@ META_WEBHOOK_VERIFY_TOKEN = os.getenv("META_WEBHOOK_VERIFY_TOKEN")
 # Bunny.net storage details
 BUNNY_STORAGE_ZONE = os.getenv("BUNNY_STORAGE_ZONE")
 BUNNY_API_KEY = os.getenv("BUNNY_API_KEY")
-BUNNY_STORAGE_URL = f"https://storage.bunnycdn.com/{BUNNY_STORAGE_ZONE}"
+BUNNY_STORAGE_URL = f"https://jh.bunnycdn.com/{BUNNY_STORAGE_ZONE}"
 
 
 def convert_ogg_to_mp3(audio_ogg, media_id):
@@ -216,7 +216,7 @@ def whatsapp_webhook():
 
                 insert_query = """
                     INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_ogg, mp3_url)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(
                     insert_query, (text_body, received_at, message_type, sender_name, sender_number, audio_ogg, mp3_url)
