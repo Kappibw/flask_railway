@@ -13,6 +13,7 @@ META_WEBHOOK_VERIFY_TOKEN = os.getenv("META_WEBHOOK_VERIFY_TOKEN")
 # Bunny.net storage details
 BUNNY_STORAGE_ZONE = os.getenv("BUNNY_STORAGE_ZONE")
 BUNNY_API_KEY = os.getenv("BUNNY_API_KEY")
+BUNNY_PULL_URL = os.getenv("BUNNY_PULL_URL")
 
 # Construct the correct storage URL
 BUNNY_STORAGE_URL = f"https://jh.storage.bunnycdn.com/{BUNNY_STORAGE_ZONE}"
@@ -56,7 +57,7 @@ def convert_ogg_to_mp3(audio_ogg, media_id):
             return None
 
         # Return the final MP3 URL
-        mp3_url = f"https://{BUNNY_STORAGE_ZONE}.b-cdn.net/{filename}"
+        mp3_url = f"http://{BUNNY_PULL_URL}.b-cdn.net/{filename}"
         print(f"✅ MP3 uploaded successfully: {mp3_url}")
 
         return mp3_url
