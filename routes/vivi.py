@@ -13,17 +13,19 @@ META_WEBHOOK_VERIFY_TOKEN = os.getenv("META_WEBHOOK_VERIFY_TOKEN")
 # Bunny.net storage details
 BUNNY_STORAGE_ZONE = os.getenv("BUNNY_STORAGE_ZONE")
 BUNNY_API_KEY = os.getenv("BUNNY_API_KEY")
-BUNNY_STORAGE_URL = f"https://jh.bunnycdn.com/{BUNNY_STORAGE_ZONE}"
+
+# Construct the correct storage URL
+BUNNY_STORAGE_URL = f"https://jh.storage.bunnycdn.com/{BUNNY_STORAGE_ZONE}"
 
 
 def convert_ogg_to_mp3(audio_ogg, media_id):
     """Convert OGG to MP3 and upload to Bunny.net, returning the MP3 URL."""
     try:
-        # Convert OGG to MP3
         print("Converting OGG to MP3...")
         input_stream = io.BytesIO(audio_ogg)
         output_stream = io.BytesIO()
 
+        # Convert OGG to MP3 using FFmpeg
         process = (
             ffmpeg.input("pipe:0", format="ogg")
             .output("pipe:1", format="mp3", audio_bitrate="192k")
@@ -42,16 +44,20 @@ def convert_ogg_to_mp3(audio_ogg, media_id):
         filename = f"audio_{media_id}.mp3"
         headers = {
             "AccessKey": BUNNY_API_KEY,
-            "Content-Type": "audio/mpeg",
+            "Content-Type": "application/octet-stream",
+            "accept": "application/json",
         }
+
+        # Send binary MP3 file using data
         response = requests.put(f"{BUNNY_STORAGE_URL}/{filename}", headers=headers, data=mp3_data)
 
         if response.status_code != 201:
-            print(f"Failed to upload MP3 to Bunny.net: {response.text}")
+            print(f"❌ Failed to upload MP3 to Bunny.net: {response.text}")
             return None
 
+        # Return the final MP3 URL
         mp3_url = f"https://{BUNNY_STORAGE_ZONE}.b-cdn.net/{filename}"
-        print(f"MP3 uploaded successfully: {mp3_url}")
+        print(f"✅ MP3 uploaded successfully: {mp3_url}")
 
         return mp3_url
 
@@ -120,7 +126,9 @@ def get_post(message_id):
             query = "SELECT sender_name, message FROM vivi_messages WHERE id = %s"
             cursor.execute(query, (message_id,))
         else:
-            query = "SELECT sender_name, message FROM vivi_messages WHERE type = 'text' ORDER BY id DESC LIMIT 1"
+            query = (
+                "SELECT sender_name, message, mp3_url FROM vivi_messages WHERE type = 'text' ORDER BY id DESC LIMIT 1"
+            )
             cursor.execute(query)
 
         message_data = cursor.fetchone()
