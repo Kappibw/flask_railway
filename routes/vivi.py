@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, jsonify, request, Response, render_template, redirect, url_for
 import ffmpeg
 import io
 import requests
@@ -14,6 +14,10 @@ META_WEBHOOK_VERIFY_TOKEN = os.getenv("META_WEBHOOK_VERIFY_TOKEN")
 BUNNY_STORAGE_ZONE = os.getenv("BUNNY_STORAGE_ZONE")
 BUNNY_API_KEY = os.getenv("BUNNY_API_KEY")
 BUNNY_PULL_URL = os.getenv("BUNNY_PULL_URL")
+DOMAIN = os.getenv("DOMAIN")
+WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
+ADMIN_PHONE_NUMBER = os.getenv("ADMIN_PHONE_NUMBER")
+
 
 # Construct the correct storage URL
 BUNNY_STORAGE_URL = f"https://jh.storage.bunnycdn.com/{BUNNY_STORAGE_ZONE}"
@@ -143,33 +147,77 @@ def delete_post(message_id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+def send_verification_whatsapp(sender_number):
+    """
+    Sends a WhatsApp message to the admin requesting verification for a new sender.
+    The message includes a link to the /vivi/verify_sender endpoint for approval.
+    """
+    verify_link = f"http://{DOMAIN}/vivi/verify_sender?phone={sender_number}"
+    message = f"New sender needs approval.\n\n" f"Sender: {sender_number}\n" f"Review details here: {verify_link}"
+
+    if not all([GRAPH_API_TOKEN, WHATSAPP_PHONE_ID, ADMIN_PHONE_NUMBER]):
+        print("WhatsApp API credentials or admin phone number not configured.")
+        return False
+
+    url = f"https://graph.facebook.com/v18.0/{WHATSAPP_PHONE_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {GRAPH_API_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    payload = {"messaging_product": "whatsapp", "to": ADMIN_PHONE_NUMBER, "type": "text", "text": {"body": message}}
+
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code == 200:
+            print("WhatsApp message sent successfully.")
+            return True
+        else:
+            print(f"Error sending WhatsApp message: {response.status_code}, {response.text}")
+            return False
+    except Exception as e:
+        print(f"Exception sending WhatsApp message: {e}")
+        return False
+
+
 @vivi.route("/vivi/get_post", defaults={"message_id": None}, methods=["GET"])
 @vivi.route("/vivi/get_post/<message_id>", methods=["GET"])
 def get_post(message_id):
     """
-    Retrieves a text message from the database. If message_id is provided, fetches the corresponding message.
-    If no message_id is provided, fetches the last message where type is "text".
+    Retrieves a text message from the database only if the sender is verified.
+    If message_id is provided, fetches the corresponding message.
+    If no message_id is provided, fetches the oldest message
+    from a verified sender.
     """
     try:
         connection = connect_db()
         cursor = connection.cursor(dictionary=True)
 
         if message_id:
-            query = "SELECT sender_name, type, message, mp3_url FROM vivi_messages WHERE id = %s"
+            query = """
+                SELECT m.sender_name, m.type, m.message, m.mp3_url 
+                FROM vivi_messages m
+                JOIN vivi_users u ON m.sender_number = u.phone
+                WHERE m.id = %s AND u.verified = 1
+            """
             cursor.execute(query, (message_id,))
         else:
-            query = "SELECT id, sender_name, type, message, mp3_url FROM vivi_messages ORDER BY id ASC LIMIT 1"
+            query = """
+                SELECT m.id, m.sender_name, m.type, m.message, m.mp3_url 
+                FROM vivi_messages m
+                JOIN vivi_users u ON m.sender_number = u.phone
+                WHERE u.verified = 1
+                ORDER BY m.id ASC LIMIT 1
+            """
             cursor.execute(query)
 
         message_data = cursor.fetchone()
-
         cursor.close()
         connection.close()
 
         if message_data:
             return jsonify(message_data)
         else:
-            return "Message not found", 404
+            return "Message not found or sender not verified", 404
 
     except Exception as e:
         return f"Error: {e}", 500
@@ -198,6 +246,70 @@ def get_audio(message_id):
 
     except Exception as e:
         return f"Error: {e}", 500
+
+
+@vivi.route("/vivi/verify_sender", methods=["GET", "POST"])
+def verify_sender():
+    """
+    Displays a page for an admin to verify or block a sender.
+    GET: Renders a page showing the sender's details (name, phone, most recent message)
+         with buttons for "verify" or "block".
+         Expects a query parameter 'phone'.
+    POST: Processes the form submission to either verify or block the sender.
+    """
+    if request.method == "GET":
+        sender_number = request.args.get("phone")
+        if not sender_number:
+            return "Sender phone number missing", 400
+
+        # Fetch sender info from vivi_users
+        connection = connect_db()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM vivi_users WHERE phone = %s", (sender_number,))
+        user = cursor.fetchone()
+
+        if not user:
+            cursor.close()
+            connection.close()
+            return f"No user found for phone {sender_number}", 404
+
+        # Fetch the most recent message for this sender
+        cursor.execute(
+            "SELECT message, sender_name FROM vivi_messages WHERE sender_number = %s ORDER BY received_at DESC LIMIT 1",
+            (sender_number,),
+        )
+        message_row = cursor.fetchone()
+        sender_name = message_row.get("sender_name") if message_row else "Unknown"
+        recent_message = message_row.get("message") if message_row else "No message found."
+
+        cursor.close()
+        connection.close()
+
+        return render_template(
+            "verify_sender.html", sender_number=sender_number, sender_name=sender_name, recent_message=recent_message
+        )
+
+    elif request.method == "POST":
+        sender_number = request.form.get("phone")
+        action = request.form.get("action")  # either "verify" or "block"
+
+        if not sender_number or action not in ["verify", "block"]:
+            return "Invalid request", 400
+
+        # Update the user record accordingly
+        connection = connect_db()
+        cursor = connection.cursor()
+        if action == "verify":
+            update_query = "UPDATE vivi_users SET verified = %s WHERE phone = %s"
+            cursor.execute(update_query, (True, sender_number))
+        elif action == "block":
+            update_query = "UPDATE vivi_users SET blocked = %s WHERE phone = %s"
+            cursor.execute(update_query, (True, sender_number))
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        return redirect(url_for("vivi.verify_sender", phone=sender_number))
 
 
 @vivi.route("/vivi", methods=["GET", "POST"])
@@ -231,6 +343,18 @@ def whatsapp_webhook():
 
             print(f"Received message from {sender_name} ({sender_number}). Type: {message_type}")
 
+            # Check if sender is in vivi_users and whether they are blocked
+            connection = connect_db()
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM vivi_users WHERE phone = %s", (sender_number,))
+            user = cursor.fetchone()
+            cursor.close()
+            connection.close()
+
+            if user and user.get("blocked"):
+                print(f"User {sender_number} is blocked. Skipping message storage.")
+                continue  # Skip processing this message
+
             audio_ogg = None
             mp3_url = None
             if message_type == "audio" and media_id:
@@ -245,13 +369,12 @@ def whatsapp_webhook():
                         mp3_url = convert_ogg_to_mp3(audio_ogg, received_at.timestamp())
                         print(f"MP3 conversion completed {'successfully' if mp3_url else 'unsuccessfully'}.")
                     else:
-                        print("Error retrieving audio from meta.")
+                        print("Error retrieving audio from Meta.")
 
-            # Save message to database
+            # Save message to database (only if sender not blocked)
             try:
                 connection = connect_db()
                 cursor = connection.cursor()
-
                 insert_query = """
                     INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_ogg, mp3_url)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -260,10 +383,45 @@ def whatsapp_webhook():
                     insert_query, (text_body, received_at, message_type, sender_name, sender_number, audio_ogg, mp3_url)
                 )
                 connection.commit()
+                message_id = cursor.lastrowid  # Get the ID of the newly inserted message
                 cursor.close()
                 connection.close()
-                print("Message saved to database.")
+                print("Message saved to database with ID:", message_id)
             except Exception as e:
                 print(f"Error saving message to database: {e}")
+                continue
+
+            # If the sender is new or not verified, add/update in vivi_users and send a verification email.
+            if not user:
+                try:
+                    connection = connect_db()
+                    cursor = connection.cursor()
+                    insert_user_query = """
+                        INSERT INTO vivi_users (phone, verified, blocked, message_id)
+                        VALUES (%s, %s, %s, %s)
+                    """
+                    cursor.execute(insert_user_query, (sender_number, False, False, message_id))
+                    connection.commit()
+                    cursor.close()
+                    connection.close()
+                    print(f"New user {sender_number} added to vivi_users.")
+                except Exception as e:
+                    print(f"Error adding new user to vivi_users: {e}")
+            elif not user.get("verified"):
+                try:
+                    connection = connect_db()
+                    cursor = connection.cursor()
+                    update_user_query = "UPDATE vivi_users SET message_id = %s WHERE phone = %s"
+                    cursor.execute(update_user_query, (message_id, sender_number))
+                    connection.commit()
+                    cursor.close()
+                    connection.close()
+                    print(f"Updated user {sender_number} with new message ID.")
+                except Exception as e:
+                    print(f"Error updating user in vivi_users: {e}")
+
+            # If the sender is not verified, send an email to request verification.
+            if not user or (user and not user.get("verified")):
+                send_verification_whatsapp(sender_number)
 
         return jsonify({"status": "received"}), 200
