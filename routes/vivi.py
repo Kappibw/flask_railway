@@ -112,6 +112,37 @@ def get_media_url(media_id):
     return response.json().get("url") if response.status_code == 200 else None
 
 
+@vivi.route("/vivi/delete_post/<message_id>", methods=["DELETE"])
+def delete_post(message_id):
+    """
+    Deletes a post from the database by its message ID.
+    """
+    try:
+        connection = connect_db()
+        cursor = connection.cursor()
+
+        # Delete the message with the given message_id
+        query = "DELETE FROM vivi_messages WHERE id = %s"
+        cursor.execute(query, (message_id,))
+        connection.commit()
+
+        # Check if any row was affected (i.e., a message was deleted)
+        if cursor.rowcount > 0:
+            result = {"status": "success", "message": f"Post {message_id} deleted successfully."}
+            status_code = 200
+        else:
+            result = {"status": "error", "message": "Post not found."}
+            status_code = 404
+
+        cursor.close()
+        connection.close()
+
+        return jsonify(result), status_code
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @vivi.route("/vivi/get_post", defaults={"message_id": None}, methods=["GET"])
 @vivi.route("/vivi/get_post/<message_id>", methods=["GET"])
 def get_post(message_id):
@@ -127,7 +158,7 @@ def get_post(message_id):
             query = "SELECT sender_name, type, message, mp3_url FROM vivi_messages WHERE id = %s"
             cursor.execute(query, (message_id,))
         else:
-            query = "SELECT sender_name, type, message, mp3_url FROM vivi_messages ORDER BY id DESC LIMIT 1"
+            query = "SELECT id, sender_name, type, message, mp3_url FROM vivi_messages ORDER BY id DESC LIMIT 1"
             cursor.execute(query)
 
         message_data = cursor.fetchone()
