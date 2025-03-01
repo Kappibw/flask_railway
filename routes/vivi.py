@@ -153,7 +153,7 @@ def send_verification_whatsapp(sender_number):
     The message includes a link to the /vivi/verify_sender endpoint for approval.
     """
     verify_link = f"http://{DOMAIN}/vivi/verify_sender?phone={sender_number}"
-    message = f"New sender needs approval.\n\n" f"Sender: {sender_number}\n" f"Review details here: {verify_link}"
+    message = f"New sender needs approval.\n\n" f"Review details here: {verify_link}"
 
     if not all([GRAPH_API_TOKEN, WHATSAPP_PHONE_ID, ADMIN_PHONE_NUMBER]):
         print("WhatsApp API credentials or admin phone number not configured.")
@@ -275,12 +275,15 @@ def verify_sender():
 
         # Fetch the most recent message for this sender
         cursor.execute(
-            "SELECT message, sender_name FROM vivi_messages WHERE sender_number = %s ORDER BY received_at DESC LIMIT 1",
+            "SELECT message, mp3_url, sender_name FROM vivi_messages WHERE sender_number = %s ORDER BY received_at DESC LIMIT 1",
             (sender_number,),
         )
         message_row = cursor.fetchone()
         sender_name = message_row.get("sender_name") if message_row else "Unknown"
         recent_message = message_row.get("message") if message_row else "No message found."
+        mp3_url = message_row.get("mp3_url") if message_row else None
+        if mp3_url is not None:
+            recent_message = mp3_url
 
         cursor.close()
         connection.close()
@@ -309,7 +312,7 @@ def verify_sender():
         cursor.close()
         connection.close()
 
-        return redirect(url_for("vivi.verify_sender", phone=sender_number))
+        return jsonify({"status": "success", "message": "Sender verification request processed."}), 200
 
 
 @vivi.route("/vivi", methods=["GET", "POST"])
@@ -376,7 +379,7 @@ def whatsapp_webhook():
                 connection = connect_db()
                 cursor = connection.cursor()
                 insert_query = """
-                    INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_ogg, mp3_url)
+                    INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_ogg, ç)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(
