@@ -169,7 +169,7 @@ def send_verification_whatsapp(sender_number):
     try:
         response = requests.post(url, headers=headers, json=payload)
         if response.status_code == 200:
-            print("WhatsApp message sent successfully.")
+            print(f"WhatsApp message sent successfully to {ADMIN_PHONE_NUMBER}.")
             return True
         else:
             print(f"Error sending WhatsApp message: {response.status_code}, {response.text}")
