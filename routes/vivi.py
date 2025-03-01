@@ -379,7 +379,7 @@ def whatsapp_webhook():
                 connection = connect_db()
                 cursor = connection.cursor()
                 insert_query = """
-                    INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_ogg, ç)
+                    INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_ogg, mp3_url)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(
