@@ -158,7 +158,7 @@ def get_post(message_id):
             query = "SELECT sender_name, type, message, mp3_url FROM vivi_messages WHERE id = %s"
             cursor.execute(query, (message_id,))
         else:
-            query = "SELECT id, sender_name, type, message, mp3_url FROM vivi_messages ORDER BY id DESC LIMIT 1"
+            query = "SELECT id, sender_name, type, message, mp3_url FROM vivi_messages ORDER BY id ASC LIMIT 1"
             cursor.execute(query)
 
         message_data = cursor.fetchone()
