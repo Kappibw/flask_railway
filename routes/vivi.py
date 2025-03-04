@@ -148,32 +148,69 @@ def get_media_url(media_id):
 @vivi.route("/vivi/delete_post/<message_id>", methods=["DELETE"])
 def delete_post(message_id):
     """
-    Deletes a post from the database by its message ID.
+    Deletes a post from the database by its message ID and removes the associated MP3 file from Bunny.net.
     """
     try:
         connection = connect_db()
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
 
-        # Delete the message with the given message_id
-        query = "DELETE FROM vivi_messages WHERE id = %s"
-        cursor.execute(query, (message_id,))
+        # Fetch the mp3_url from the database
+        cursor.execute("SELECT mp3_url FROM vivi_messages WHERE id = %s", (message_id,))
+        message = cursor.fetchone()
+
+        if not message:
+            cursor.close()
+            connection.close()
+            return jsonify({"status": "error", "message": "Post not found."}), 404
+
+        mp3_url = message.get("mp3_url")
+
+        # Step 1: Attempt to delete the MP3 file from Bunny.net if it exists
+        if mp3_url:
+            success = delete_mp3_from_bunny(mp3_url)
+            if not success:
+                print(f"Error: Failed to delete MP3 from Bunny.net for message ID {message_id}")
+
+        # Step 2: Delete the message from the database
+        cursor.execute("DELETE FROM vivi_messages WHERE id = %s", (message_id,))
         connection.commit()
-
-        # Check if any row was affected (i.e., a message was deleted)
-        if cursor.rowcount > 0:
-            result = {"status": "success", "message": f"Post {message_id} deleted successfully."}
-            status_code = 200
-        else:
-            result = {"status": "error", "message": "Post not found."}
-            status_code = 404
 
         cursor.close()
         connection.close()
 
-        return jsonify(result), status_code
+        return jsonify({"status": "success", "message": f"Post {message_id} deleted successfully."}), 200
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+def delete_mp3_from_bunny(mp3_url):
+    """
+    Deletes the MP3 file from Bunny.net storage.
+    """
+    try:
+        # Extract the filename from the URL
+        filename = mp3_url.split("/")[-1]
+
+        # Construct the Bunny.net DELETE request
+        delete_url = f"{BUNNY_STORAGE_URL}/{filename}"
+        headers = {
+            "AccessKey": BUNNY_API_KEY,
+            "accept": "application/json",
+        }
+
+        response = requests.delete(delete_url, headers=headers)
+
+        if response.status_code == 200 or response.status_code == 204:
+            print(f"✅ MP3 file {filename} deleted successfully from Bunny.net.")
+            return True
+        else:
+            print(f"❌ Failed to delete MP3 from Bunny.net: {response.text}")
+            return False
+
+    except Exception as e:
+        print(f"Error deleting MP3 from Bunny.net: {e}")
+        return False
 
 
 def send_verification_whatsapp(sender_number):
