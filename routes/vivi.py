@@ -14,13 +14,62 @@ META_WEBHOOK_VERIFY_TOKEN = os.getenv("META_WEBHOOK_VERIFY_TOKEN")
 BUNNY_STORAGE_ZONE = os.getenv("BUNNY_STORAGE_ZONE")
 BUNNY_API_KEY = os.getenv("BUNNY_API_KEY")
 BUNNY_PULL_URL = os.getenv("BUNNY_PULL_URL")
+
 DOMAIN = os.getenv("DOMAIN")
 WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
 ADMIN_PHONE_NUMBER = os.getenv("ADMIN_PHONE_NUMBER")
 
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_TTS_VOICE = "nova"  # British female voice
 
 # Construct the correct storage URL
 BUNNY_STORAGE_URL = f"https://jh.storage.bunnycdn.com/{BUNNY_STORAGE_ZONE}"
+
+
+def upload_mp3_to_bunny(mp3_data, timestamp):
+    """Upload MP3 file to Bunny.net and return the public URL."""
+    try:
+        filename = f"audio_{timestamp}.mp3"
+        headers = {
+            "AccessKey": BUNNY_API_KEY,
+            "Content-Type": "application/octet-stream",
+            "accept": "application/json",
+        }
+
+        response = requests.put(f"{BUNNY_STORAGE_URL}/{filename}", headers=headers, data=mp3_data)
+
+        if response.status_code != 201:
+            print(f"❌ Failed to upload MP3 to Bunny.net: {response.text}")
+            return None
+
+        mp3_url = f"http://{BUNNY_PULL_URL}.b-cdn.net/{filename}"
+        print(f"✅ MP3 uploaded successfully: {mp3_url}")
+
+        return mp3_url
+
+    except Exception as e:
+        print(f"Error uploading MP3 to Bunny.net: {e}")
+        return None
+
+
+def text_to_speech(text):
+    """Convert text to speech using OpenAI API and return MP3 audio data."""
+    try:
+        print("Converting text to speech...")
+        url = "https://api.openai.com/v1/audio/speech"
+        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+        payload = {"model": "tts-1", "input": text, "voice": OPENAI_TTS_VOICE}
+
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            print("TTS conversion successful!")
+            return response.content  # MP3 binary data
+        else:
+            print(f"OpenAI API Error: {response.text}")
+            return None
+    except Exception as e:
+        print(f"Error converting text to speech: {e}")
+        return None
 
 
 def convert_ogg_to_mp3(audio_ogg, media_id):
@@ -28,7 +77,6 @@ def convert_ogg_to_mp3(audio_ogg, media_id):
     try:
         print("Converting OGG to MP3...")
         input_stream = io.BytesIO(audio_ogg)
-        output_stream = io.BytesIO()
 
         # Convert OGG to MP3 using FFmpeg
         process = (
@@ -45,26 +93,7 @@ def convert_ogg_to_mp3(audio_ogg, media_id):
 
         print("Conversion successful!")
 
-        # Upload MP3 to Bunny.net
-        filename = f"audio_{media_id}.mp3"
-        headers = {
-            "AccessKey": BUNNY_API_KEY,
-            "Content-Type": "application/octet-stream",
-            "accept": "application/json",
-        }
-
-        # Send binary MP3 file using data
-        response = requests.put(f"{BUNNY_STORAGE_URL}/{filename}", headers=headers, data=mp3_data)
-
-        if response.status_code != 201:
-            print(f"❌ Failed to upload MP3 to Bunny.net: {response.text}")
-            return None
-
-        # Return the final MP3 URL
-        mp3_url = f"http://{BUNNY_PULL_URL}.b-cdn.net/{filename}"
-        print(f"✅ MP3 uploaded successfully: {mp3_url}")
-
-        return mp3_url
+        return upload_mp3_to_bunny(mp3_data, media_id)
 
     except Exception as e:
         print(f"Error during conversion or upload: {e}")
@@ -153,7 +182,7 @@ def send_verification_whatsapp(sender_number):
     The message includes a link to the /vivi/verify_sender endpoint for approval.
     """
     verify_link = f"http://{DOMAIN}/vivi/verify_sender?phone={sender_number}"
-    message = f"New sender needs approval.\n\n" f"Review details here: {verify_link}"
+    message = f"New sender to Vivi needs approval.\n\n" f"Review details here: {verify_link}"
 
     if not all([GRAPH_API_TOKEN, WHATSAPP_PHONE_ID, ADMIN_PHONE_NUMBER]):
         print("WhatsApp API credentials or admin phone number not configured.")
@@ -373,6 +402,13 @@ def whatsapp_webhook():
                         print(f"MP3 conversion completed {'successfully' if mp3_url else 'unsuccessfully'}.")
                     else:
                         print("Error retrieving audio from Meta.")
+
+            elif message_type == "text" and text_body:
+                print(f"Received text message: {text_body}")
+                mp3_data = text_to_speech(text_body)
+                if mp3_data:
+                    mp3_url = upload_mp3_to_bunny(mp3_data, received_at.timestamp())
+                    print(f"MP3 conversion from text completed {'successfully' if mp3_url else 'unsuccessfully'}.")
 
             # Save message to database (only if sender not blocked)
             try:
