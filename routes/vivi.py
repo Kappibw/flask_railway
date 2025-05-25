@@ -148,37 +148,47 @@ def get_media_url(media_id):
 @vivi.route("/vivi/delete_post/<message_id>", methods=["DELETE"])
 def delete_post(message_id):
     """
-    Deletes a post from the database by its message ID and removes the associated MP3 file from Bunny.net.
+    Sets the message as listened in the database. TODO: Rename this endpoint to /vivi/listen_post/<message_id> once
+    connection to the raspberry pi is re-established.
     """
     try:
         connection = connect_db()
         cursor = connection.cursor(dictionary=True)
 
-        # Fetch the mp3_url from the database
-        cursor.execute("SELECT mp3_url FROM vivi_messages WHERE id = %s", (message_id,))
-        message = cursor.fetchone()
-
-        if not message:
-            cursor.close()
-            connection.close()
-            return jsonify({"status": "error", "message": "Post not found."}), 404
-
-        mp3_url = message.get("mp3_url")
-
-        # Step 1: Attempt to delete the MP3 file from Bunny.net if it exists
-        if mp3_url:
-            success = delete_mp3_from_bunny(mp3_url)
-            if not success:
-                print(f"Error: Failed to delete MP3 from Bunny.net for message ID {message_id}")
-
-        # Step 2: Delete the message from the database
-        cursor.execute("DELETE FROM vivi_messages WHERE id = %s", (message_id,))
+        # Set the message as listened in the database
+        cursor.execute("UPDATE vivi_messages SET listened = 1 WHERE id = %s", (message_id,))
         connection.commit()
-
         cursor.close()
         connection.close()
+        return jsonify({"status": "success", "message": f"Post {message_id} marked as listened."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-        return jsonify({"status": "success", "message": f"Post {message_id} deleted successfully."}), 200
+        # # Fetch the mp3_url from the database
+        # cursor.execute("SELECT mp3_url FROM vivi_messages WHERE id = %s", (message_id,))
+        # message = cursor.fetchone()
+
+        # if not message:
+        #     cursor.close()
+        #     connection.close()
+        #     return jsonify({"status": "error", "message": "Post not found."}), 404
+
+        # mp3_url = message.get("mp3_url")
+
+        # # Step 1: Attempt to delete the MP3 file from Bunny.net if it exists
+        # if mp3_url:
+        #     success = delete_mp3_from_bunny(mp3_url)
+        #     if not success:
+        #         print(f"Error: Failed to delete MP3 from Bunny.net for message ID {message_id}")
+
+        # # Step 2: Delete the message from the database
+        # cursor.execute("DELETE FROM vivi_messages WHERE id = %s", (message_id,))
+        # connection.commit()
+
+        # cursor.close()
+        # connection.close()
+
+        # return jsonify({"status": "success", "message": f"Post {message_id} deleted successfully."}), 200
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -251,7 +261,7 @@ def get_post(message_id):
     """
     Retrieves a text message from the database only if the sender is verified.
     If message_id is provided, fetches the corresponding message.
-    If no message_id is provided, fetches the oldest message
+    If no message_id is provided, fetches the oldest unlistened message
     from a verified sender.
     """
     try:
@@ -271,7 +281,7 @@ def get_post(message_id):
                 SELECT m.id, m.sender_name, m.type, m.message, m.mp3_url 
                 FROM vivi_messages m
                 JOIN vivi_users u ON m.sender_number = u.phone
-                WHERE u.verified = 1
+                WHERE u.verified = 1 and m.listened = 0
                 ORDER BY m.id ASC LIMIT 1
             """
             cursor.execute(query)
@@ -283,32 +293,10 @@ def get_post(message_id):
         if message_data:
             return jsonify(message_data)
         else:
-            return "Message not found or sender not verified", 404
-
-    except Exception as e:
-        return f"Error: {e}", 500
-
-
-@vivi.route("/vivi/get_audio/<message_id>", methods=["GET"])
-def get_audio(message_id):
-    """
-    Serves the stored OGG file for a given message ID.
-    """
-    try:
-        connection = connect_db()
-        cursor = connection.cursor()
-
-        query = "SELECT audio_ogg FROM vivi_messages WHERE id = %s"
-        cursor.execute(query, (message_id,))
-        audio_data = cursor.fetchone()
-
-        cursor.close()
-        connection.close()
-
-        if audio_data and audio_data[0]:
-            return Response(audio_data[0], mimetype="audio/ogg")
-        else:
-            return "Audio file not found", 404
+            if message_id:
+                return "Message not found or sender not verified", 404
+            else:
+                return "No unlistened messages from verified senders", 404
 
     except Exception as e:
         return f"Error: {e}", 500
@@ -452,11 +440,11 @@ def whatsapp_webhook():
                 connection = connect_db()
                 cursor = connection.cursor()
                 insert_query = """
-                    INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, audio_ogg, mp3_url)
+                    INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, mp3_url)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(
-                    insert_query, (text_body, received_at, message_type, sender_name, sender_number, audio_ogg, mp3_url)
+                    insert_query, (text_body, received_at, message_type, sender_name, sender_number, mp3_url)
                 )
                 connection.commit()
                 message_id = cursor.lastrowid  # Get the ID of the newly inserted message
