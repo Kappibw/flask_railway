@@ -1,4 +1,4 @@
-# Flask App serving API.thinkakkappi.com
+# Flask App serving api.thinkkappi.com
 
 This is a [Flask](https://flask.palletsprojects.com/en/1.1.x/) app that serves the various endpoints offered by api.thinkkappi.com.
 
