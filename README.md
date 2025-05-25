@@ -1,23 +1,9 @@
----
-title: Flask
-description: A popular minimal server framework for Python
-tags:
-  - python
-  - flask
----
+# Flask App serving API.thinkakkappi.com
 
-# Python Flask Example
+This is a [Flask](https://flask.palletsprojects.com/en/1.1.x/) app that serves the various endpoints offered by api.thinkkappi.com.
 
-This is a [Flask](https://flask.palletsprojects.com/en/1.1.x/) app that serves a simple JSON response.
+## ✨ Endpoints
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/zUcpux)
+- `vivi_postbox`: Vivi's messaging service.
+- `fish`: No such thing as a fish random episode selector.
 
-## ✨ Features
-
-- Python
-- Flask
-
-## 💁‍♀️ How to use
-
-- Install Python requirements `pip install -r requirements.txt`
-- Start the server for development `python3 main.py`
