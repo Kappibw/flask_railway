@@ -287,8 +287,8 @@ def handle_incoming_message(message):
         connection = connect_db()
         cursor = connection.cursor()
         insert_query = """
-            INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, mp3_url)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO vivi_messages (message, received_at, type, sender_name, sender_number, mp3_url, listened)
+            VALUES (%s, %s, %s, %s, %s, %s, 0)
         """
         cursor.execute(insert_query, (text_body, received_at, message_type, sender_name, sender_id, mp3_url))
         connection.commit()
