@@ -9,3 +9,4 @@ mysql-connector-python==9.2.0
 beautifulsoup4==4.12.2
 requests==2.31.0
 ffmpeg-python
+pyTelegramBotAPI==4.26.0
