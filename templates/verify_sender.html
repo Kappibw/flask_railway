@@ -3,19 +3,96 @@
 
 <head>
     <title>Verify Sender</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .status-box {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .verified {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .blocked {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .btn-verify {
+            background-color: #28a745;
+            color: white;
+            border: none;
+        }
+
+        .btn-block {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+        }
+    </style>
 </head>
 
 <body>
     <h1>Sender Verification</h1>
-    <p><strong>Phone Number:</strong> {{ sender_number }}</p>
-    <p><strong>Sender Name:</strong> {{ sender_name }}</p>
-    <p><strong>Most Recent Message:</strong> {{ recent_message }}</p>
 
+    {% if is_verified %}
+    <div class="status-box verified">
+        <strong>Action Not Required:</strong> This sender has already been <strong>Verified</strong> by an admin.
+    </div>
+    {% elif is_blocked %}
+    <div class="status-box blocked">
+        <strong>Action Not Required:</strong> This sender has already been <strong>Blocked</strong> by an admin.
+    </div>
+    {% endif %}
+
+    <p><strong>Telegram ID:</strong> {{ sender_number }}</p>
+    <p><strong>Sender Name:</strong> {{ sender_name }}</p>
+
+    <p><strong>Most Recent Message:</strong><br>
+        {% if recent_message.startswith('http') %}
+        <a href="{{ recent_message }}" target="_blank">Listen to Audio</a>
+        {% else %}
+        {{ recent_message }}
+        {% endif %}
+    </p>
+
+    <hr>
+
+    {% if not is_verified and not is_blocked %}
+    <p>Do you want to allow this person to send messages to Vivi?</p>
     <form method="POST">
         <input type="hidden" name="phone" value="{{ sender_number }}">
-        <button type="submit" name="action" value="verify">Verify</button>
-        <button type="submit" name="action" value="block">Block</button>
+        <button type="submit" name="action" value="verify" class="btn-verify">Approve Sender</button>
+        <button type="submit" name="action" value="block" class="btn-block">Block Sender</button>
     </form>
+    {% else %}
+    <p><a href="tg://resolve?domain=YOUR_BOT_USERNAME">← Back to Telegram</a></p>
+    {% endif %}
+
+    <script>
+        // Optional: Simple feedback if they click a button
+        document.querySelector('form').onsubmit = function () {
+            return confirm('Are you sure you want to ' + document.activeElement.value + ' this user?');
+        };
+    </script>
 </body>
 
 </html>

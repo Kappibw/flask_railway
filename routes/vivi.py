@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, request, render_template
 import telebot
+import time
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 import ffmpeg
 import io
 import requests
@@ -21,13 +23,77 @@ BUNNY_STORAGE_URL = f"https://jh.storage.bunnycdn.com/{BUNNY_STORAGE_ZONE}"
 
 DOMAIN = os.getenv("DOMAIN")
 ADMIN_TELEGRAM_ID = os.getenv("ADMIN_TELEGRAM_ID")  # Your Telegram ID to receive approvals
+ADMIN_TELEGRAM_IDS = [id.strip() for id in os.getenv("ADMIN_TELEGRAM_ID", "").split(",") if id.strip()]
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_TTS_VOICE = "nova"
 
+# --- NIGHTLIGHT CONTROL ---
+nightlight_until = 0  # Timestamp until which the nightlight should be on
+
+
+def get_admin_keyboard():
+    """Big button keyboard at the bottom of the screen."""
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(KeyboardButton("💡 Turn on Nightlight"))
+    return markup
+
+
+def get_duration_keyboard():
+    """Buttons that appear inside the chat message."""
+    markup = InlineKeyboardMarkup()
+    # Callback data format: "nl_hours:X"
+    markup.add(
+        InlineKeyboardButton("1 Hour", callback_data="nl_hours:1"),
+        InlineKeyboardButton("2 Hours", callback_data="nl_hours:2"),
+    )
+    markup.add(
+        InlineKeyboardButton("4 Hours", callback_data="nl_hours:4"),
+        InlineKeyboardButton("8 Hours", callback_data="nl_hours:8"),
+    )
+    markup.add(InlineKeyboardButton("❌ Cancel", callback_data="nl_cancel"))
+    return markup
+
+
+@bot.message_handler(
+    func=lambda message: str(message.from_user.id) in ADMIN_TELEGRAM_IDS and message.text == "💡 Turn on Nightlight"
+)
+def nightlight_trigger(message):
+    bot.send_message(
+        message.chat.id, "How long should the nightlight stay on for?", reply_markup=get_duration_keyboard()
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("nl_"))
+def handle_nightlight_selection(call):
+    global nightlight_until
+
+    if call.data == "nl_cancel":
+        bot.edit_message_text("Nightlight request cancelled.", call.message.chat.id, call.message.message_id)
+        return
+
+    # Extract hours from callback_data (e.g., "nl_hours:4")
+    hours = int(call.data.split(":")[1])
+
+    # Calculate expiration time
+    nightlight_until = time.time() + (hours * 3600)
+
+    readable_time = datetime.fromtimestamp(nightlight_until).strftime("%I:%M %p")
+    bot.edit_message_text(
+        f"✅ Nightlight is now ON for {hours} hours (until {readable_time}).",
+        call.message.chat.id,
+        call.message.message_id,
+    )
+
+
+@vivi.route("/vivi/nightlight", methods=["GET"])
+def get_nightlight_status():
+    """Raspberry Pi calls this to see if the light should be on."""
+    is_active = time.time() < nightlight_until
+    return jsonify({"nightlight": is_active})
+
+
 # --- CORE UTILITIES ---
-
-
 def upload_mp3_to_bunny(mp3_data, timestamp):
     """Upload MP3 file to Bunny.net and return the public URL."""
     try:
@@ -115,11 +181,31 @@ def telegram_webhook():
     return "Forbidden", 403
 
 
+@bot.message_handler(commands=["start"])
+def send_welcome(message):
+    sender_id = str(message.from_user.id)
+    if sender_id in ADMIN_TELEGRAM_IDS:
+        bot.send_message(
+            message.chat.id,
+            "Hi Jones's! Use the button below to control the postbox.",
+            reply_markup=get_admin_keyboard(),
+        )
+    else:
+        bot.send_message(
+            message.chat.id,
+            "👋 Welcome to Vivi's Postbox! Send me a voice message or text, and I'll make sure Vivi hears it. If you're new, your message will need approval first.",
+        )
+
+
 @bot.message_handler(content_types=["text", "voice"])
 def handle_incoming_message(message):
     sender_id = str(message.from_user.id)
-    sender_name = message.from_user.first_name
+    sender_name = message.from_user.first_name + " " + (message.from_user.last_name or "")
     received_at = datetime.utcnow()
+
+    if message.text and message.text.startswith("/"):
+        print(f"Ignoring command message from {sender_id}, command: {message.text}")
+        return
 
     # Check if user is blocked
     connection = connect_db()
@@ -183,11 +269,11 @@ def send_admin_verification(sender_id, sender_name):
     """Notifies you on Telegram when a new user needs approval."""
     verify_link = f"http://{DOMAIN}/vivi/verify_sender?phone={sender_id}"
     msg = f"🔔 *New Message from Unverified Vivi Postbox User*\nName: {sender_name}\nID: {sender_id}\n\n[Verify or Block Here]({verify_link})"
-    if ADMIN_TELEGRAM_ID:
+    for admin in ADMIN_TELEGRAM_IDS:
         try:
-            bot.send_message(ADMIN_TELEGRAM_ID, msg, parse_mode="Markdown")
+            bot.send_message(admin, msg, parse_mode="Markdown")
         except Exception as e:
-            print(f"Failed to notify admin: {e}")
+            print(f"Failed to notify admin {admin}: {e}")
 
 
 # --- RASPBERRY PI ENDPOINTS ---
@@ -274,64 +360,76 @@ def listen_post(message_id):
 
 @vivi.route("/vivi/verify_sender", methods=["GET", "POST"])
 def verify_sender():
-    """
-    Displays a page for an admin to verify or block a sender.
-    GET: Renders a page showing the sender's details (name, phone, most recent message)
-         with buttons for "verify" or "block".
-         Expects a query parameter 'phone'.
-    POST: Processes the form submission to either verify or block the sender.
-    """
-    if request.method == "GET":
-        sender_number = request.args.get("phone")
-        if not sender_number:
-            return "Sender phone number missing", 400
+    sender_number = request.args.get("phone") if request.method == "GET" else request.form.get("phone")
 
-        # Fetch sender info from vivi_users
-        connection = connect_db()
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM vivi_users WHERE phone = %s", (sender_number,))
-        user = cursor.fetchone()
+    if not sender_number:
+        return "Sender phone number missing", 400
 
-        if not user:
-            cursor.close()
-            connection.close()
-            return f"No user found for phone {sender_number}", 404
+    # Connect to check current status
+    connection = connect_db()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT verified, blocked FROM vivi_users WHERE phone = %s", (sender_number,))
+    user = cursor.fetchone()
 
-        # Fetch the most recent message for this sender
-        cursor.execute(
-            "SELECT message, mp3_url, sender_name FROM vivi_messages WHERE sender_number = %s ORDER BY received_at DESC LIMIT 1",
-            (sender_number,),
-        )
-        message_row = cursor.fetchone()
-        sender_name = message_row.get("sender_name") if message_row else "Unknown"
-        recent_message = message_row.get("message") if message_row else "No message found."
-        mp3_url = message_row.get("mp3_url") if message_row else None
-        if mp3_url is not None:
-            recent_message = mp3_url
-
+    if not user:
         cursor.close()
         connection.close()
+        return f"No user found for phone {sender_number}", 404
 
-        return render_template(
-            "verify_sender.html", sender_number=sender_number, sender_name=sender_name, recent_message=recent_message
-        )
+    # --- THE MULTI-ADMIN CHECK ---
+    if request.method == "POST":
+        action = request.form.get("action")
 
-    elif request.method == "POST":
-        sender_number = request.form.get("phone")
-        action = request.form.get("action")  # either "verify" or "block"
+        # 1. If user is already verified and admin tries to verify again
+        if user["verified"] and action == "verify":
+            cursor.close()
+            connection.close()
+            return (
+                jsonify({"status": "already_done", "message": "Another admin has already approved this sender."}),
+                200,
+            )
 
-        if not sender_number or action not in ["verify", "block"]:
-            return "Invalid request", 400
+        # 2. If user is already blocked and admin tries to block again
+        if user["blocked"] and action == "block":
+            cursor.close()
+            connection.close()
+            return jsonify({"status": "already_done", "message": "Another admin has already blocked this sender."}), 200
 
-        # Update the user record accordingly
-        connection = connect_db()
-        cursor = connection.cursor()
+        # --- PROCEED WITH UPDATE ---
+        cursor = connection.cursor()  # Switch to non-dictionary cursor for updates if preferred
         if action == "verify":
             cursor.execute("UPDATE vivi_users SET verified = 1 WHERE phone = %s", (sender_number,))
             bot.send_message(sender_number, "🎉 You've been verified! Vivi can now hear your messages.")
         elif action == "block":
             cursor.execute("UPDATE vivi_users SET blocked = 1 WHERE phone = %s", (sender_number,))
+
         connection.commit()
         cursor.close()
         connection.close()
-        return jsonify({"status": "success", "message": "Sender verification request processed."}), 200
+        return jsonify({"status": "success", "message": "Verification processed successfully."}), 200
+
+    # --- GET LOGIC ---
+    cursor.execute(
+        "SELECT message, mp3_url, sender_name FROM vivi_messages WHERE sender_number = %s ORDER BY received_at DESC LIMIT 1",
+        (sender_number,),
+    )
+    message_row = cursor.fetchone()
+    sender_name = message_row.get("sender_name") if message_row else "Unknown"
+    recent_message = (
+        message_row.get("mp3_url")
+        if (message_row and message_row.get("mp3_url"))
+        else (message_row.get("message") if message_row else "No message found.")
+    )
+
+    cursor.close()
+    connection.close()
+
+    # Pass 'user' status to the template so you can disable buttons if already done
+    return render_template(
+        "verify_sender.html",
+        sender_number=sender_number,
+        sender_name=sender_name,
+        recent_message=recent_message,
+        is_verified=user["verified"],
+        is_blocked=user["blocked"],
+    )
