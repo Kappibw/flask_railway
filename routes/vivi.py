@@ -96,7 +96,7 @@ def handle_nightlight_selection(call):
 def get_nightlight_status():
     """Raspberry Pi calls this to see if the light should be on."""
     is_active = time.time() < nightlight_until
-    return jsonify({"nightlight": is_active})
+    return jsonify({"nightlight": is_active, "remaining_seconds": max(0, int(nightlight_until - time.time()))})
 
 
 # --- CORE UTILITIES ---
