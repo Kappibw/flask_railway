@@ -34,7 +34,7 @@ nightlight_until = 0  # Timestamp until which the nightlight should be on
 def get_admin_keyboard():
     """Big button keyboard at the bottom of the screen."""
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton("💡 Turn on Nightlight"))
+    markup.add(KeyboardButton("💡 Control Nightlight"))
     return markup
 
 
@@ -50,12 +50,13 @@ def get_duration_keyboard():
         InlineKeyboardButton("4 Hours", callback_data="nl_hours:4"),
         InlineKeyboardButton("8 Hours", callback_data="nl_hours:8"),
     )
+    markup.add(InlineKeyboardButton("Turn off Nightlight", callback_data="nl_off"))
     markup.add(InlineKeyboardButton("❌ Cancel", callback_data="nl_cancel"))
     return markup
 
 
 @bot.message_handler(
-    func=lambda message: str(message.from_user.id) in ADMIN_TELEGRAM_IDS and message.text == "💡 Turn on Nightlight"
+    func=lambda message: str(message.from_user.id) in ADMIN_TELEGRAM_IDS and message.text == "💡 Control Nightlight"
 )
 def nightlight_trigger(message):
     bot.send_message(
@@ -71,15 +72,21 @@ def handle_nightlight_selection(call):
         bot.edit_message_text("Nightlight request cancelled.", call.message.chat.id, call.message.message_id)
         return
 
+    if call.data == "nl_off":
+        nightlight_until = 0
+        bot.edit_message_text(
+            "✅ Nightlight will turn OFF in the next 5 seconds.", call.message.chat.id, call.message.message_id
+        )
+        return
+
     # Extract hours from callback_data (e.g., "nl_hours:4")
     hours = int(call.data.split(":")[1])
 
     # Calculate expiration time
     nightlight_until = time.time() + (hours * 3600)
 
-    readable_time = datetime.fromtimestamp(nightlight_until).strftime("%I:%M %p")
     bot.edit_message_text(
-        f"✅ Nightlight is now ON for {hours} hours (until {readable_time}).",
+        f"✅ Nightlight will turn ON for {hours} hours in the next 5 seconds.",
         call.message.chat.id,
         call.message.message_id,
     )
