@@ -6,7 +6,7 @@ import ffmpeg
 import io
 import requests
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from database.database import connect_db
 
 vivi = Blueprint("vivi", __name__)
@@ -66,37 +66,80 @@ def nightlight_trigger(message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("nl_"))
 def handle_nightlight_selection(call):
-    global nightlight_until
-
     if call.data == "nl_cancel":
         bot.edit_message_text("Nightlight request cancelled.", call.message.chat.id, call.message.message_id)
         return
 
+    # 1. Determine the expiration datetime
     if call.data == "nl_off":
-        nightlight_until = 0
-        bot.edit_message_text(
-            "✅ Nightlight will turn OFF in the next 5 seconds.", call.message.chat.id, call.message.message_id
-        )
-        return
+        expiration_dt = datetime.utcnow()  # Set to "now" to effectively turn it off
+        msg_text = "✅ Nightlight will turn OFF in the next 5 seconds."
+    else:
+        # Extract hours from callback_data (e.g., "nl_hours:4")
+        hours = int(call.data.split(":")[1])
+        expiration_dt = datetime.utcnow() + timedelta(hours=hours)
+        msg_text = f"✅ Nightlight will turn ON for {hours} hours in the next 5 seconds."
 
-    # Extract hours from callback_data (e.g., "nl_hours:4")
-    hours = int(call.data.split(":")[1])
+    # 2. Update the Database
+    try:
+        connection = connect_db()
+        cursor = connection.cursor()
 
-    # Calculate expiration time
-    nightlight_until = time.time() + (hours * 3600)
+        # We use id=1 as the single record for the light state
+        # ON DUPLICATE KEY UPDATE ensures we only ever have one row
+        query = """
+            INSERT INTO vivi_nightlight (id, expires_at) 
+            VALUES (1, %s) 
+            ON DUPLICATE KEY UPDATE expires_at = %s
+        """
+        cursor.execute(query, (expiration_dt, expiration_dt))
+        connection.commit()
 
-    bot.edit_message_text(
-        f"✅ Nightlight will turn ON for {hours} hours in the next 5 seconds.",
-        call.message.chat.id,
-        call.message.message_id,
-    )
+        cursor.close()
+        connection.close()
+
+        # 3. Give feedback to the Admin
+        bot.edit_message_text(msg_text, call.message.chat.id, call.message.message_id)
+
+    except Exception as e:
+        print(f"Error saving nightlight to DB: {e}")
+        bot.answer_callback_query(call.id, "Error saving settings to database.")
 
 
 @vivi.route("/vivi/nightlight", methods=["GET"])
 def get_nightlight_status():
     """Raspberry Pi calls this to see if the light should be on."""
-    is_active = time.time() < nightlight_until
-    return jsonify({"nightlight": is_active, "remaining_seconds": max(0, int(nightlight_until - time.time()))})
+    try:
+        connection = connect_db()
+        cursor = connection.cursor(dictionary=True)
+
+        # Fetch the single state record from your table
+        cursor.execute("SELECT expires_at FROM vivi_nightlight WHERE id = 1")
+        row = cursor.fetchone()
+
+        cursor.close()
+        connection.close()
+
+        if row:
+            expires_at = row["expires_at"]
+            now = datetime.utcnow()
+
+            # Calculate remaining seconds (must be positive or zero)
+            # .total_seconds() is the reliable way to get the float difference
+            remaining = (expires_at - now).total_seconds()
+            remaining_seconds = max(0, int(remaining))
+
+            # Nightlight is active if the expiration time is still in the future
+            is_active = remaining_seconds > 0
+
+            return jsonify({"nightlight": is_active, "remaining_seconds": remaining_seconds})
+
+        # Default if no row exists yet
+        return jsonify({"nightlight": False, "remaining_seconds": 0})
+
+    except Exception as e:
+        print(f"Error fetching nightlight status: {e}")
+        return jsonify({"error": "Database error", "nightlight": False, "remaining_seconds": 0}), 500
 
 
 # --- CORE UTILITIES ---
