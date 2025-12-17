@@ -22,8 +22,7 @@ BUNNY_PULL_URL = os.getenv("BUNNY_PULL_URL")
 BUNNY_STORAGE_URL = f"https://jh.storage.bunnycdn.com/{BUNNY_STORAGE_ZONE}"
 
 DOMAIN = os.getenv("DOMAIN")
-ADMIN_TELEGRAM_ID = os.getenv("ADMIN_TELEGRAM_ID")  # Your Telegram ID to receive approvals
-ADMIN_TELEGRAM_IDS = [id.strip() for id in os.getenv("ADMIN_TELEGRAM_ID", "").split(",") if id.strip()]
+ADMIN_TELEGRAM_IDS = [id.strip() for id in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",") if id.strip()]
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_TTS_VOICE = "nova"
